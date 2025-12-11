@@ -5,6 +5,7 @@ Module Collections.HashMap
 Import Collections.IMap
 Import Collections.ICollection
 Import Collections.ImmutableList
+Import Collections.Errors
 
 Type THashMap<K, V> Implements IMap<K, V>
 
@@ -16,18 +17,18 @@ Type THashMap<K, V> Implements IMap<K, V>
 	Field _dibs:Int[]      ' -1 = empty, >=0 distance from home
 	Field _size:Int
 	Field _version:Int
-	Field _comparator:IComparator<K>
+	Field _comparator:IEqualityComparator<K>
 	
 	Public
 
 	Method New()
 	End Method
 
-	Method New(comparator:IComparator<K>)
+	Method New(comparator:IEqualityComparator<K>)
 		_comparator = comparator
 	End Method
 
-	Method New(initialCapacity:Int, comparator:IComparator<K> = Null)
+	Method New(initialCapacity:Int, comparator:IEqualityComparator<K> = Null)
 		_comparator = comparator
 		If initialCapacity > 0 Then
 			EnsureCapacity(initialCapacity)
@@ -237,15 +238,20 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	Method KeysEqual:Int(a:K, b:K)
 		If _comparator Then
-			Return _comparator.Compare(a, b) = 0
-		Else
-			' DefaultComparator_Compare is assumed to work for K
-			Return DefaultComparator_Compare(a, b) = 0
-		End If
+			Return _comparator.Equals(a, b)
+		End IF
+
+		' DefaultComparator_Compare is assumed to work for K
+		Return DefaultComparator_Equals(a, b)
 	End Method
 
 	Method GetHash:Int(key:K)
-		Return Default_HashCode(key)
+		If _comparator Then
+			Return _comparator.HashCode(key)
+		End If
+		
+		' DefaultComparator_HashCode is assumed to work for K
+		Return DefaultComparator_HashCode(key)
 	End Method
 
 	' Robin Hood lookup

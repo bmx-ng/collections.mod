@@ -23,14 +23,14 @@ Public
 	Rem
 	bbdoc: Creates an empty THashSet using the specified comparator.
 	End Rem
-	Method New(comparator:IComparator<T>)
+	Method New(comparator:IEqualityComparator<T>)
 		map = New THashMap<T,Int>(comparator)
 	End Method
 
 	Rem
 	bbdoc: Creates a THashSet initialised from an array of elements.
 	End Rem
-	Method New(array:T[], comparator:IComparator<T> = Null)
+	Method New(array:T[], comparator:IEqualityComparator<T> = Null)
 		map = New THashMap<T,Int>(comparator)
 		If array Then
 			For Local element:T = EachIn array
@@ -42,7 +42,7 @@ Public
 	Rem
 	bbdoc: Creates a THashSet initialised from an IIterable of elements.
 	End Rem
-	Method New(iterable:IIterable<T>, comparator:IComparator<T> = Null)
+	Method New(iterable:IIterable<T>, comparator:IEqualityComparator<T> = Null)
 		map = New THashMap<T,Int>(comparator)
 		If iterable Then
 			For Local element:T = EachIn iterable

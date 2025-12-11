@@ -18,14 +18,14 @@ ModuleInfo "History: Moved generic-based maps to their own modules."
 ModuleInfo "History: 1.12"
 ModuleInfo "History: Refactored tree based maps to use brl.collections."
 
-Import Collections.TreeMap
+Import Collections.HashMap
 
 Rem
 bbdoc: A Tree map backed map with String keys and Object values.
 End Rem
 Type TStringMap
 	
-	Field _map:TTreeMap<String, Object>
+	Field _map:THashMap<String, Object>
 	Field _caseSensitive:Int = True
 
 	Rem
@@ -33,7 +33,7 @@ Type TStringMap
 	about: By default, the map is case-sensitive.
 	End Rem
 	Method New()
-		_map = New TTreeMap<String, Object>
+		_map = New THashMap<String, Object>
 	End Method
 
 	Rem
@@ -43,9 +43,9 @@ Type TStringMap
 	Method New(caseSensitive:Int)
 		_caseSensitive = caseSensitive
 		If Not _caseSensitive Then
-			_map = New TTreeMap<String, Object>( New TStringCaseInsensitiveComparator )
+			_map = New THashMap<String, Object>( New TStringCaseInsensitiveComparator )
 		Else
-			_map = New TTreeMap<String, Object>
+			_map = New THashMap<String, Object>
 		End If
 	End Method
 
@@ -83,7 +83,7 @@ Type TStringMap
 
 	Method Keys:TStringMapEnumerator()
 		Local nodeEnumerator:TStringKeyEnumerator = New TStringKeyEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<String,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<String,Object>>(_map.GetIterator())
 		Local mapEnumerator:TStringMapEnumerator = New TStringMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -91,7 +91,7 @@ Type TStringMap
 
 	Method Values:TStringMapEnumerator()
 		Local nodeEnumerator:TStringValueEnumerator = New TStringValueEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<String,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<String,Object>>(_map.GetIterator())
 		Local mapEnumerator:TStringMapEnumerator = New TStringMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -99,9 +99,9 @@ Type TStringMap
 
 	Method Copy:TStringMap()
 		Local newMap:TStringMap = New TStringMap(_caseSensitive)
-		Local iter:TMapIterator<String,Object> = TMapIterator<String,Object>(_map.GetIterator())
+		Local iter:IIterator<IMapNode<String,Object>> = IIterator<IMapNode<String,Object>>(_map.GetIterator())
 		While iter.MoveNext()
-			Local n:TTreeMapNode<String,Object> = TTreeMapNode<String,Object>(iter.Current())
+			Local n:IMapNode<String,Object> = IMapNode<String,Object>(iter.Current())
 			If n Then
 				newMap._map.Add( n.GetKey(), n.GetValue() )
 			End If
@@ -111,7 +111,7 @@ Type TStringMap
 
 	Method ObjectEnumerator:TStringNodeEnumerator()
 		Local nodeEnumerator:TStringNodeEnumerator = New TStringNodeEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<String,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<String,Object>>(_map.GetIterator())
 		Return nodeEnumerator
 	End Method
 
@@ -142,43 +142,64 @@ End Type
 Type TStringNodeEnumerator
 
 	Method HasNext:Int()
-		Return _mapIterator.HasNext()
+		' If we’ve already advanced and not consumed, we know there is a next.
+		If _ready Then
+			Return True
+		End If
+
+		' Otherwise, try to move forward once.
+		If _mapIterator.MoveNext() Then
+			_ready = True
+			Return True
+		End If
+
+		' No more elements.
+		Return False
 	End Method
 
 	Method NextObject:Object()
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<String,Object> = TTreeMapNode<String,Object>(_mapIterator.Current())
+		' Normal usage: HasNext was just called and set ready = True.
+		If Not _ready Then
+			' Be defensive: allow NextObject without HasNext.
+			If Not _mapIterator.MoveNext() Then
+				Return Null ' no more elements
+			End If
+		End If
+
+		_ready = False
+		Local n:IMapNode<String,Object> = IMapNode<String,Object>(_mapIterator.Current())
 		If n Then
-			keyValue._key = n.GetKey()
-			keyValue._value = n.GetValue()
-			Return keyValue
+			_keyValue._key = n.GetKey()
+			_keyValue._value = n.GetValue()
+			Return _keyValue
 		End If	
 	End Method
 
 	'***** PRIVATE *****
 		
-	Field _mapIterator:TMapIterator<String,Object>
-	Field keyValue:TStringKeyValue = New TStringKeyValue
+	Field _mapIterator:IIterator<IMapNode<String,Object>>
+	Field _keyValue:TStringKeyValue = New TStringKeyValue
+	Field _ready:Int
 
 End Type
 
 Type TStringKeyEnumerator Extends TStringNodeEnumerator
 	Method NextObject:Object() Override
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<String,Object> = TTreeMapNode<String,Object>(_mapIterator.Current())
-		If n Then
-			Return n.GetKey()
+		Local kv:TStringKeyValue = TStringKeyValue(Super.NextObject())
+		If kv Then
+			Return kv._key
 		End If
+		Return Null
 	End Method
 End Type
 
 Type TStringValueEnumerator Extends TStringNodeEnumerator
 	Method NextObject:Object() Override
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<String,Object> = TTreeMapNode<String,Object>(_mapIterator.Current())
-		If n Then
-			Return n.GetValue()
+		Local kv:TStringKeyValue = TStringKeyValue(Super.NextObject())
+		If kv Then
+			Return kv._value
 		End If
+		Return Null
 	End Method
 End Type
 
@@ -189,8 +210,12 @@ Type TStringMapEnumerator
 	Field _enumerator:TStringNodeEnumerator
 End Type
 
-Type TStringCaseInsensitiveComparator Implements IComparator<String>
-	Method Compare:Int(a:String, b:String)
-		Return a.Compare(b, False)
+Type TStringCaseInsensitiveComparator Implements IEqualityComparator<String>
+	Method Equals:Int(a:String, b:String) Override
+		Return a.Equals(b, False)
+	End Method
+
+	Method HashCode:UInt(value:String) Override
+		Return value.HashCode(False)
 	End Method
 End Type
