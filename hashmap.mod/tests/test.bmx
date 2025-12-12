@@ -3,16 +3,26 @@ SuperStrict
 Framework brl.standardio
 Import brl.maxunit
 Import Collections.HashMap
-
+Import BRL.StringBuilder
 
 New TTestSuite.run()
 
 
-Type TReverseStringComparator Implements IComparator<String>
-    Method Compare:Int(a:String, b:String)
-        If a = b Then Return 0
-        If a > b Then Return -1
-        Return 1
+Type TReverseStringComparator Implements IEqualityComparator<String>
+    Method Equals:Int(a:String, b:String)
+        Return a.Equals(b, True) ' if it's the same one way, it will be the same the other
+    End Method
+
+    Method HashCode:UInt(value:String)
+        Return Reverse(value).HashCode()
+    End Method
+
+    Method Reverse:String(s:String)
+        Local sb:TStringBuilder = New TStringBuilder
+        For Local i:Int = s.Length - 1 To 0 Step -1
+            sb.AppendChar(s[i])
+        Next
+        Return sb.ToString()
     End Method
 End Type
 
@@ -351,6 +361,11 @@ Type TCollKey
     Method HashCode:UInt()
         Return 1
     End Method
+
+    Method Equals:Int(other:Object)
+        If other = Null Then Return 0
+        Return id = TCollKey(other).id
+    End Method
 End Type
 
 Type TCollKeyClustered Extends TCollKey
@@ -363,26 +378,33 @@ Type TCollKeyClustered Extends TCollKey
     Method HashCode:UInt()
         Return UInt(id & 7)
     End Method
-End Type
 
-Type TCollKeyComparator Implements IComparator<TCollKey>
-    Method Compare:Int(a:TCollKey, b:TCollKey)
-        If a = b Then Return 0
-        If a = Null Then Return -1
-        If b = Null Then Return 1
-        If a.id < b.id Then Return -1
-        If a.id > b.id Then Return 1
-        Return 0
+    Method Equals:Int(other:Object)
+        If other = Null Then Return 0
+        Return id = TCollKeyClustered(other).id
     End Method
 End Type
 
-Type TCollKeyClusteredComparator Implements IComparator<TCollKeyClustered>
-    Method Compare:Int(a:TCollKeyClustered, b:TCollKeyClustered)
-        If a = b Then Return 0
-        If a = Null Then Return -1
-        If b = Null Then Return 1
-        If a.id < b.id Then Return -1
-        If a.id > b.id Then Return 1
-        Return 0
+Type TCollKeyComparator Implements IEqualityComparator<TCollKey>
+    Method Equals:Int(a:TCollKey, b:TCollKey)
+        If a = b Then Return 1
+        If a = Null Or b = Null Then Return 0
+        Return a.id = b.id
+    End Method
+
+    Method HashCode:UInt(value:TCollKey)
+        Return value.HashCode()
+    End Method
+End Type
+
+Type TCollKeyClusteredComparator Implements IEqualityComparator<TCollKeyClustered>
+    Method Equals:Int(a:TCollKeyClustered, b:TCollKeyClustered)
+        If a = b Then Return 1
+        If a = Null Or b = Null Then Return 0
+        Return a.id = b.id
+    End Method
+
+    Method HashCode:UInt(value:TCollKeyClustered)
+        Return value.HashCode()
     End Method
 End Type

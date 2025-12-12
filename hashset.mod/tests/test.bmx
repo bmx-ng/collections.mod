@@ -296,8 +296,6 @@ Type THashSetTest Extends TTest
                 End If
             End If
         Next
-
-		print "done"
     End Method
 
 End Type
@@ -318,6 +316,11 @@ Type TCollKey
     Method HashCode:UInt()
         Return 1
     End Method
+
+    Method Equals:Int(other:Object)
+        If other = Null Then Return 0
+        Return id = TCollKey(other).id
+    End Method
 End Type
 
 Type TCollKeyClustered Extends TCollKey
@@ -330,26 +333,33 @@ Type TCollKeyClustered Extends TCollKey
     Method HashCode:UInt()
         Return UInt(id & 7)
     End Method
-End Type
 
-Type TCollKeyComparator Implements IComparator<TCollKey>
-    Method Compare:Int(a:TCollKey, b:TCollKey)
-        If a = b Then Return 0
-        If a = Null Then Return -1
-        If b = Null Then Return 1
-        If a.id < b.id Then Return -1
-        If a.id > b.id Then Return 1
-        Return 0
+    Method Equals:Int(other:Object)
+        If other = Null Then Return 0
+        Return id = TCollKeyClustered(other).id
     End Method
 End Type
 
-Type TCollKeyClusteredComparator Implements IComparator<TCollKeyClustered>
-    Method Compare:Int(a:TCollKeyClustered, b:TCollKeyClustered)
-        If a = b Then Return 0
-        If a = Null Then Return -1
-        If b = Null Then Return 1
-        If a.id < b.id Then Return -1
-        If a.id > b.id Then Return 1
-        Return 0
+Type TCollKeyComparator Implements IEqualityComparator<TCollKey>
+    Method Equals:Int(a:TCollKey, b:TCollKey)
+        If a = b Then Return 1
+        If a = Null Or b = Null Then Return 0
+        Return a.id = b.id
+    End Method
+
+    Method HashCode:UInt(value:TCollKey)
+        Return value.HashCode()
+    End Method
+End Type
+
+Type TCollKeyClusteredComparator Implements IEqualityComparator<TCollKeyClustered>
+    Method Equals:Int(a:TCollKeyClustered, b:TCollKeyClustered)
+        If a = b Then Return 1
+        If a = Null Or b = Null Then Return 0
+        Return a.id = b.id
+    End Method
+
+    Method HashCode:UInt(value:TCollKeyClustered)
+        Return value.HashCode()
     End Method
 End Type
