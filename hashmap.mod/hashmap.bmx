@@ -72,35 +72,15 @@ Type THashMap<K, V> Implements IMap<K, V>
 			Return New TEmptyImmutableList<K>
 		End If
 
-		Local keyArray:K[] = New K[_size]
-		If _dibs Then
-			Local idx:Int
-			For Local i:Int = 0 Until _dibs.Length
-				If _dibs[i] >= 0 Then
-					keyArray[idx] = _keys[i]
-					idx :+ 1
-				End If
-			Next
-		End If
-		Return New TImmutableList<K>(keyArray, True)
+		Return New THashMapKeysView<K,V>(Self)
 	End Method
 	
 	Method Values:ICollection<V>()
 		If _size = 0 Then
-			Return New TEmptyImmutableList<K>
+			Return New TEmptyImmutableList<V>
 		End If
 
-		Local valueArray:V[] = New V[_size]
-		Local idx:Int
-		If _dibs Then
-			For Local i:Int = 0 Until _dibs.Length
-				If _dibs[i] >= 0 Then
-					valueArray[idx] = _values[i]
-					idx :+ 1
-				End If
-			Next
-		End If
-		Return New TImmutableList<V>(valueArray, True)
+		Return New THashMapValuesView<K,V>(Self)
 	End Method
 
 	' Add: throws if key already exists
@@ -462,4 +442,165 @@ Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 		Return False
 	End Method
 
+End Type
+
+Type THashMapKeysView<K,V> Implements ICollection<K>
+	Private
+	Field _map:THashMap<K,V>
+
+	Public
+	Method New(map:THashMap<K,V>)
+		_map = map
+	End Method
+
+	Method Count:Int()
+		Return _map.Count()
+	End Method
+	
+	Method IsEmpty:Int()
+		Return _map.IsEmpty()
+	End Method
+
+	Method Clear()
+		UnsupportedOperationError()
+	End Method
+
+	Method CopyTo(array:K[], index:Int = 0)
+		Local i:Int = index
+		If _map._dibs Then
+			For Local p:Int = 0 Until _map._dibs.Length
+				If _map._dibs[p] >= 0 Then
+					array[i] = _map._keys[p]
+					i :+ 1
+				End If
+			Next
+		End If
+	End Method
+
+	Method GetIterator:IIterator<K>()
+		Return New THashMapKeysIterator<K,V>(_map)
+	End Method
+End Type
+
+Type THashMapKeysIterator<K,V> Implements IIterator<K>
+	Private
+	Field _map:THashMap<K,V>
+	Field _idx:Int
+	Field _current:K
+	Field _version:Int
+
+	Public
+	Method New(map:THashMap<K,V>)
+		_map = map
+		_idx = -1
+		_version = map._version
+	End Method
+
+	Method Current:K()
+		Return _current
+	End Method
+
+	Method MoveNext:Int()
+		If _version <> _map._version Then
+			Throw New TInvalidOperationException("Collection was modified during iteration")
+		End If
+		If _map._dibs = Null Then
+			Return False
+		End If
+
+		Local cap:Int = _map._dibs.Length
+		Repeat
+			_idx :+ 1
+			If _idx >= cap Then
+				Local def:K
+				_current = def
+				Return False
+			End If
+		Until _map._dibs[_idx] >= 0
+
+		_current = _map._keys[_idx]
+		Return True
+	End Method
+End Type
+
+Type THashMapValuesView<K,V> Implements ICollection<V>
+	Private
+	Field _map:THashMap<K,V>
+
+	Public
+	Method New(map:THashMap<K,V>)
+		_map = map
+	End Method
+
+	Method Count:Int()
+		Return _map.Count()
+	End Method
+
+	Method IsEmpty:Int()
+		Return _map.IsEmpty()
+	End Method
+
+	Method Clear()
+		UnsupportedOperationError()
+	End Method
+
+	Method CopyTo(array:V[], index:Int = 0)
+		Local i:Int = index
+		If _map._dibs Then
+			For Local p:Int = 0 Until _map._dibs.Length
+				If _map._dibs[p] >= 0 Then
+					array[i] = _map._values[p]
+					i :+ 1
+				End If
+			Next
+		End If
+	End Method
+
+	Method GetIterator:IIterator<V>()
+		Return New THashMapValuesIterator<K,V>(_map)
+	End Method
+End Type
+
+Type THashMapValuesIterator<K,V> Implements IIterator<V>
+	Private
+	Field _map:THashMap<K,V>
+	Field _idx:Int
+	Field _current:V
+	Field _version:Int
+
+	Public
+	Method New(map:THashMap<K,V>)
+		_map = map
+		_idx = -1
+		_version = map._version
+	End Method
+
+	Method Current:V()
+		Return _current
+	End Method
+
+	Method MoveNext:Int()
+		If _version <> _map._version Then
+			Throw New TInvalidOperationException("Collection was modified during iteration")
+		End If
+
+		If _map._dibs = Null Then
+			Local def:V
+			_current = def
+			Return False
+		End If
+
+		Local cap:Int = _map._dibs.Length
+		Repeat
+			_idx :+ 1
+			If _idx >= cap Then
+				Local def2:V
+				_current = def2
+				Return False
+			End If
+		Until _map._dibs[_idx] >= 0
+
+		_current = _map._values[_idx]
+		Return True
+	End Method
 End Type
