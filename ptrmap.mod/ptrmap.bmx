@@ -15,14 +15,14 @@ ModuleInfo "History: Moved generic-based maps to their own modules."
 ModuleInfo "History: 1.12"
 ModuleInfo "History: Refactored tree based maps to use brl.collections."
 
-Import Collections.TreeMap
+Import Collections.HashMap
 
 Rem
 bbdoc: A Tree map backed map with Byte Ptr keys and Object values.
 End Rem
 Type TPtrMap
 
-	Field _map:TTreeMap<Byte Ptr, Object> = New TTreeMap<Byte Ptr, Object>()
+	Field _map:THashMap<Byte Ptr, Object> = New THashMap<Byte Ptr, Object>()
 
 	Method Clear()
 		_map.Clear()
@@ -58,7 +58,7 @@ Type TPtrMap
 
 	Method Keys:TPtrMapEnumerator()
 		Local nodeEnumerator:TPtrKeyEnumerator = New TPtrKeyEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<Byte Ptr,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<Byte Ptr,Object>>(_map.GetIterator())
 		Local mapEnumerator:TPtrMapEnumerator = New TPtrMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -66,7 +66,7 @@ Type TPtrMap
 
 	Method Values:TPtrMapEnumerator()
 		Local nodeEnumerator:TPtrValueEnumerator = New TPtrValueEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<Byte Ptr,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<Byte Ptr,Object>>(_map.GetIterator())
 		Local mapEnumerator:TPtrMapEnumerator = New TPtrMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -74,9 +74,9 @@ Type TPtrMap
 
 	Method Copy:TPtrMap()
 		Local newMap:TPtrMap = New TPtrMap
-		Local iter:TMapIterator<Byte Ptr,Object> = TMapIterator<Byte Ptr,Object>(_map.GetIterator())
+		Local iter:IIterator<IMapNode<Byte Ptr,Object>> = IIterator<IMapNode<Byte Ptr,Object>>(_map.GetIterator())
 		While iter.MoveNext()
-			Local n:TTreeMapNode<Byte Ptr,Object> = TTreeMapNode<Byte Ptr,Object>(iter.Current())
+			Local n:IMapNode<Byte Ptr,Object> = IMapNode<Byte Ptr,Object>(iter.Current())
 			If n Then
 				newMap._map.Add( n.GetKey(), n.GetValue() )
 			End If
@@ -86,7 +86,7 @@ Type TPtrMap
 
 	Method ObjectEnumerator:TPtrNodeEnumerator()
 		Local nodeEnumerator:TPtrNodeEnumerator = New TPtrNodeEnumerator
-		nodeEnumerator._mapIterator = TMapIterator<Byte Ptr,Object>(_map.GetIterator())
+		nodeEnumerator._mapIterator = IIterator<IMapNode<Byte Ptr,Object>>(_map.GetIterator())
 		Return nodeEnumerator
 	End Method
 
@@ -128,45 +128,66 @@ End Type
 Type TPtrNodeEnumerator
 
 	Method HasNext:Int()
-		Return _mapIterator.HasNext()
+		' If we’ve already advanced and not consumed, we know there is a next.
+		If _ready Then
+			Return True
+		End If
+
+		' Otherwise, try to move forward once.
+		If _mapIterator.MoveNext() Then
+			_ready = True
+			Return True
+		End If
+
+		' No more elements.
+		Return False
 	End Method
 
 	Method NextObject:Object()
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<Byte Ptr,Object> = TTreeMapNode<Byte Ptr,Object>(_mapIterator.Current())
+		' Normal usage: HasNext was just called and set ready = True.
+		If Not _ready Then
+			' Be defensive: allow NextObject without HasNext.
+			If Not _mapIterator.MoveNext() Then
+				Return Null ' no more elements
+			End If
+		End If
+
+		_ready = False
+		Local n:IMapNode<Byte Ptr,Object> = IMapNode<Byte Ptr,Object>(_mapIterator.Current())
 		If n Then
-			keyValue._key = n.GetKey()
-			keyValue._value = n.GetValue()
-			Return keyValue
+			_keyValue._key = n.GetKey()
+			_keyValue._value = n.GetValue()
+			Return _keyValue
 		End If	
 	End Method
 
 	'***** PRIVATE *****
 		
-	Field _mapIterator:TMapIterator<Byte Ptr,Object>
-	Field keyValue:TPtrKeyValue = New TPtrKeyValue
+	Field _mapIterator:IIterator<IMapNode<Byte Ptr,Object>>
+	Field _keyValue:TPtrKeyValue = New TPtrKeyValue
+	Field _ready:Int
 
 End Type
 
 Type TPtrKeyEnumerator Extends TPtrNodeEnumerator
 	Field _key:TPtrKey = New TPtrKey
 	Method NextObject:Object() Override
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<Byte Ptr,Object> = TTreeMapNode<Byte Ptr,Object>(_mapIterator.Current())
-		If n Then
-			_key.value = n.GetKey()
+		Local kv:TPtrKeyValue = TPtrKeyValue(Super.NextObject())
+		If kv Then
+			_key.value = kv._key
 			Return _key
 		End If
+		Return Null
 	End Method
 End Type
 
 Type TPtrValueEnumerator Extends TPtrNodeEnumerator
 	Method NextObject:Object() Override
-		_mapIterator.MoveNext()
-		Local n:TTreeMapNode<Byte Ptr,Object> = TTreeMapNode<Byte Ptr,Object>(_mapIterator.Current())
-		If n Then
-			Return n.GetValue()
+		Local kv:TPtrKeyValue = TPtrKeyValue(Super.NextObject())
+		If kv Then
+			Return kv._value
 		End If
+		Return Null
 	End Method
 End Type
 
