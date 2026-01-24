@@ -583,6 +583,20 @@ Public
 	Method GetPrevious:TLinkedListNode<T>()
 		Return previousNode
 	End Method
+
+	Rem
+	bbdoc: Check node status.
+	End Rem
+	Method IsLinked:Int()
+		Return list<>Null
+	End Method
+
+	Rem
+	bbdoc: Removes the node from the #TLinkedList.
+	End Rem
+	Method Remove()
+		If list Then list.RemoveNode( Self )
+	End Method
 	
 Private
 	Method New(list:TLinkedList<T>, value:T)
