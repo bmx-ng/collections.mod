@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/HashSet
+End Rem
 Module Collections.HashSet
 
 Import Collections.ISet

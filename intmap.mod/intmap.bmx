@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Data structures/IntMap
+bbdoc: Collections/IntMap
 about: A maps data structure with Int keys.
 End Rem
 Module Collections.IntMap

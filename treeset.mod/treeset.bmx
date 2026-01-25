@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/TreeSet
+End Rem
 Module Collections.TreeSet
 
 Import Collections.ISet

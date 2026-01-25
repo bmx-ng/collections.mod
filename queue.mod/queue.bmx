@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/Queue
+End Rem
 Module Collections.Queue
 
 Import Collections.ICollection

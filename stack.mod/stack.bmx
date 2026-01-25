@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/Stack
+End Rem
 Module Collections.Stack
 
 Import Collections.ICollection
