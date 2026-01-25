@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/ImmutableList
+End Rem
 Module Collections.ImmutableList
 
 Import Collections.IList

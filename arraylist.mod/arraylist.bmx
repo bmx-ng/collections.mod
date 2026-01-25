@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/ArrayList
+End Rem
 Module Collections.ArrayList
 
 Import Collections.IList

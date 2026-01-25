@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Data structures/ObjectMap
+bbdoc: Collections/ObjectMap
 about: A maps data structure with Object keys.
 End Rem
 Module Collections.ObjectMap

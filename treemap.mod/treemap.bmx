@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/TreeMap
+End Rem
 Module Collections.TreeMap
 
 Import Collections.IMap

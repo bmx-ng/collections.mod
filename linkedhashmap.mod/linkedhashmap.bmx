@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/LinkedHashMap
+End Rem
 Module Collections.LinkedHashMap
 
 Import Collections.IMap

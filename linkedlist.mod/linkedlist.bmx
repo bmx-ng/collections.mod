@@ -1,5 +1,8 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/LinkedList
+End Rem
 Module Collections.LinkedList
 
 Import Collections.ICollection

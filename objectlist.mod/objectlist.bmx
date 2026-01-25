@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Data structures/Array-backed Object Lists
+bbdoc: Collections/Array-backed Object Lists
 End Rem
 Module Collections.ObjectList
 

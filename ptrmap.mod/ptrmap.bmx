@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Data structures/PtrMap
+bbdoc: Collections/PtrMap
 about: A maps data structure with Byte Ptr keys.
 End Rem
 Module Collections.PtrMap

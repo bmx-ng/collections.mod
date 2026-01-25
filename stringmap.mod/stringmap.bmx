@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Data structures/StringMap
+bbdoc: Collections/StringMap
 about: A maps data structure with String keys.
 End Rem
 Module Collections.StringMap
