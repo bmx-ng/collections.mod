@@ -12,7 +12,7 @@ Import Collections.Errors
 
 Type THashMap<K, V> Implements IMap<K, V>
 
-	Private
+	'Private
 	Const EMPTY:Int = -1
 
 	Field _keys:K[]
