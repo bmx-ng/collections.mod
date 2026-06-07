@@ -272,6 +272,14 @@ Public
 	Method Contains:Int(value:T)
 		Return Find(value) <> Null
 	End Method
+
+	Rem
+	bbdoc: Determines whether @link is in the #TLinkedList.
+	returns: #True if @link is in the #TLinkedList, or #False otherwise.
+	End Rem
+	Method Contains:Int( link:TLinkedListNode<T> )
+		Return link.list=Self
+	End Method
 	
 	Rem
 	bbdoc: Finds the first node that contains @value.
