@@ -23,7 +23,14 @@ Public
 	Rem
 	bbdoc: Creates a new TArrayList
 	End Rem
-	Method New(initialCapacity:Int = 16)
+	Method New()
+		New(16)
+	End Method
+
+	Rem
+	bbdoc: Creates a new TArrayList with the specified initial capacity.
+	End Rem
+	Method New(initialCapacity:Int)
 		Self.initialCapacity = initialCapacity
 		data = New T[initialCapacity]
 	End Method
