@@ -30,7 +30,14 @@ Public
 	Rem
 	bbdoc: Creates a new #TQueue instance.
 	End Rem
-	Method New(initialCapacity:Int = 16)
+	Method New()
+		New(16)
+	End Method
+
+	Rem
+	bbdoc: Creates a new #TQueue instance with the specified initial capacity.
+	End Rem
+	Method New(initialCapacity:Int)
 		Self.initialCapacity = initialCapacity
 		data = New T[initialCapacity]
 	End Method
@@ -117,12 +124,12 @@ Public
 					index = 0
 				End If
 			Until index = tail
-			
-			size = 0
-			head = tail
 		End If
+		size = 0
+		head = tail
+		full = False
 	End Method
-	
+
 	Rem
 	bbdoc: Determines whether an element is in the #TQueue.
 	End Rem
@@ -157,8 +164,9 @@ Public
 		full = False
 
 		Local element:T = data[head]
+		data[head] = Null
+
 		head :+ 1
-		
 		size :- 1
 
 		If head = data.length Then
@@ -209,28 +217,20 @@ Public
 	bbdoc: Can be used to minimize a collection's memory overhead if no new elements will be added to the collection.
 	End Rem
 	Method TrimExcess()
-		Local temp:T[]
-		If Not size Then
-			temp = temp[..initialCapacity]
-		Else If size < data.length Then
-			temp = temp[..size]
+		Local newCapacity:Int = size
+		If newCapacity < initialCapacity Then
+			newCapacity = initialCapacity
 		End If
 
-		Local tempIndex:Int
-		Local dataIndex:Int = head
-		Repeat
-			temp[tempIndex] = data[dataIndex]
-			dataIndex :+ 1
-			If dataIndex = data.length Then
-				dataIndex = 0
-			End If
-			tempIndex :+ 1
-		Until dataIndex = tail
+		Local temp:T[] = New T[newCapacity]
+		For Local i:Int = 0 Until size
+			temp[i] = data[(head + i) Mod data.length]
+		Next
 
-		head = 0
 		data = temp
-		tail = 0
-		full = size > 0
+		head = 0
+		tail = size Mod data.length
+		full = size = data.length
 	End Method
 	
 	Rem

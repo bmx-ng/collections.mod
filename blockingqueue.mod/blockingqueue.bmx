@@ -27,7 +27,11 @@ Type TBlockingQueue<T> Extends TQueue<T>
 		Field notFull:TCondVar
 	Public
 
-	Method New(capacity:Int = 16)
+	Method New()
+		New(16)
+	End Method
+
+	Method New(capacity:Int)
 		Super.New(capacity)
 		lock = TMutex.Create()
 		notEmpty = TCondVar.Create()
@@ -160,7 +164,11 @@ Type TBlockingTaskQueue<T> Extends TQueue<T>
 		Field unfinishedTasks:Int
 	Public
 
-	Method New(capacity:Int = 16)
+	Method New()
+		New(16)
+	End Method
+
+	Method New(capacity:Int)
 		Super.New(capacity)
 		lock = TMutex.Create()
 		notEmpty = TCondVar.Create()

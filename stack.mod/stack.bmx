@@ -21,8 +21,15 @@ Public
 	Rem
 	bbdoc: Creates a new #TStack.
 	End Rem
-	Method New(initialCapacity:Int = 16)
-		Self.initialCapacity = 16
+	Method New()
+		New(16)
+	End Method
+
+	Rem
+	bbdoc: Creates a new #TStack with the specified initial capacity.
+	End Rem
+	Method New(initialCapacity:Int)
+		Self.initialCapacity = initialCapacity
 		data = New T[initialCapacity]
 	End Method
 
