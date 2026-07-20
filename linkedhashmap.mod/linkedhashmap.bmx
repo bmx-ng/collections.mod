@@ -16,7 +16,7 @@ with automatic eviction of least-recently-used entries.
 End Rem
 Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
-	Private
+	Internal
 	Const EMPTY:Int = -1
 
 	Field _entries:TLinkedHashEntry<K,V>[]  ' table slots hold entry refs

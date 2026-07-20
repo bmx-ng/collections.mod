@@ -17,13 +17,15 @@ is automatically increased as required by reallocating the internal array. The c
 End Rem
 Type TQueue<T> Implements ICollection<T>
 
-Private
+Internal
 	Field initialCapacity:Int
 	
 	Field data:T[]
 	Field head:Int
 	Field tail:Int
 	Field size:Int
+
+Protected
 	Field full:Int
 Public
 
@@ -297,7 +299,9 @@ Type TQueueIterator<T> Implements IIterator<T>
 	End Method
 
 	Method Current:T()
-		Return queue.data[index]
+		Local data:T
+		queue.TryPeek(data)
+		Return data
 	End Method
 	
 	Method MoveNext:Int()

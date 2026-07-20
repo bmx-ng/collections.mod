@@ -12,7 +12,7 @@ bbdoc: A last-in-first-out (LIFO) stack of elements of the specified type.
 End Rem
 Type TStack<T> Implements ICollection<T>
 
-Private
+Internal
 	Field data:T[]
 	Field size:Int
 	Field initialCapacity:Int

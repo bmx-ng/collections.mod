@@ -13,7 +13,7 @@ bbdoc: Represents a collection of elements that is maintained in sorted order. D
 End Rem
 Type TTreeSet<T> Implements ISet<T>
 
-	Private
+	Internal
 	Field root:TTreeSetNode<T>
 	Field size:Int
 	
@@ -420,7 +420,7 @@ Type TTreeSet<T> Implements ISet<T>
 		Return New TTreeSet<T>(array, comparator)
 	End Function
 
-Private
+Internal
 	Method RotateLeft( node:TTreeSetNode<T> )
 		Local child:TTreeSetNode<T>=node.rightNode
 		node.rightNode=child.leftNode
@@ -917,7 +917,7 @@ Type TTreeSetNode<T>
 End Type
 
 Type TTreeSetIterator<T> Implements IIterator<T> 
-	Private
+	Internal
 	Field initial:TTreeSetNode<T>
 	Field node:TTreeSetNode<T>
 

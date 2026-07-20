@@ -120,13 +120,9 @@ Type TBlockingQueue<T> Extends TQueue<T>
 	
 	Method TryPeek:Int(value:T Var)
 		lock.Lock()
-		If IsEmpty()
-			lock.Unlock()
-			Return False
-		End If
-		value = data[head]
+		Local result:Int = Super.TryPeek(value)
 		lock.Unlock()
-		Return True
+		Return result
 	End Method
 	
 	Method Clear()
@@ -266,13 +262,9 @@ Type TBlockingTaskQueue<T> Extends TQueue<T>
 	
 	Method TryPeek:Int(value:T Var)
 		lock.Lock()
-		If IsEmpty()
-			lock.Unlock()
-			Return False
-		End If
-		value = data[head]
+		Local result:Int = Super.TryPeek(value)
 		lock.Unlock()
-		Return True
+		Return result
 	End Method
 	
 	Method Clear()
