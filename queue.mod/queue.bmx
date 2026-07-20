@@ -288,13 +288,13 @@ Type TQueueIterator<T> Implements IIterator<T>
 	Private
 	Field queue:TQueue<T>
 	Field index:Int
+
+	Public
 	
 	Method New(queue:TQueue<T>)
 		Self.queue = queue
 		index = queue.head - 1
 	End Method
-	
-	Public
 
 	Method Current:T()
 		Return queue.data[index]

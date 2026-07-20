@@ -230,13 +230,13 @@ Type TStackIterator<T> Implements IIterator<T>
 	Field stack:TStack<T>
 	Field index:Int
 	
+	Public
+
 	Method New(stack:TStack<T>)
 		Self.stack = stack
 		index = stack.size
 	End Method
 	
-	Public
-
 	Method Current:T()
 		Return stack.data[index]
 	End Method

@@ -12,7 +12,7 @@ Rem
 bbdoc: A doubly linked list.
 End Rem
 Type TLinkedList<T> Implements ICollection<T>
-Private
+Internal
 	Field head:TLinkedListNode<T>
 	Field size:Int
 Public
@@ -419,7 +419,7 @@ Public
 		Return arr
 	End Method
 
-Private
+Internal
 	Method ValidateNode(node:TLinkedListNode<T>)
 		If Not node Then
 			Throw New TArgumentNullException("node")
@@ -559,7 +559,7 @@ Rem
 bbdoc: Represents a node in a #TLinkedList.
 End Rem
 Type TLinkedListNode<T>
-Private
+Internal
 	Field list:TLinkedList<T>
 	Field nextNode:TLinkedListNode<T>
 	Field previousNode:TLinkedListNode<T>
@@ -601,7 +601,7 @@ Public
 		If list Then list.RemoveNode( Self )
 	End Method
 	
-Private
+Internal
 	Method New(list:TLinkedList<T>, value:T)
 		Self.list = list
 		Self.value = value
@@ -616,7 +616,7 @@ Public
 End Type
 
 Type TLinkedListIterator<T> Implements IIterator<T> 
-	Private
+	Internal
 	Field list:TLinkedList<T>
 	Field node:TLinkedListNode<T>
 	Field index:Int
