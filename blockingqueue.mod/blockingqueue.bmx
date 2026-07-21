@@ -266,7 +266,7 @@ Type TBlockingTaskQueue<T> Extends TQueue<T>
 		lock.Unlock()
 		Return result
 	End Method
-	
+
 	Method Clear()
 		lock.Lock()
 		Super.Clear()

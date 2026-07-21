@@ -19,12 +19,11 @@ Type TQueue<T> Implements ICollection<T>
 
 Internal
 	Field initialCapacity:Int
-	
+
 	Field data:T[]
 	Field head:Int
 	Field tail:Int
 	Field size:Int
-
 Protected
 	Field full:Int
 Public
