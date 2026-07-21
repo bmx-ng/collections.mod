@@ -33,7 +33,8 @@ Type TQueueTest Extends TTest
 		Next
 		
 		assertEquals(0, queue.Count(), "Count should be 0 after dequeuing all items")
-		assertTrue(queue.head = queue.tail, "head and tail should be equal when queue is empty")
+		assertEquals(0, queue.Count(), "Count should be 0 after dequeuing all items")
+		assertTrue(queue.IsEmpty(), "IsEmpty should return true when queue is empty")
 	
 	End Method
 
@@ -49,7 +50,8 @@ Type TQueueTest Extends TTest
 		
 		queue.Clear()
 		assertEquals(0, queue.Count(), "Count should be 0 after Clear")
-		assertTrue(queue.head = queue.tail, "head and tail should be equal after Clear")
+		assertEquals(0, queue.Count(), "Count should be 0 after Clear")
+		assertTrue(queue.IsEmpty(), "IsEmpty should return true after Clear")
 		
 	End Method
 

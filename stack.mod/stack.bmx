@@ -12,7 +12,7 @@ bbdoc: A last-in-first-out (LIFO) stack of elements of the specified type.
 End Rem
 Type TStack<T> Implements ICollection<T>
 
-Private
+Internal
 	Field data:T[]
 	Field size:Int
 	Field initialCapacity:Int
@@ -230,13 +230,13 @@ Type TStackIterator<T> Implements IIterator<T>
 	Field stack:TStack<T>
 	Field index:Int
 	
+	Public
+
 	Method New(stack:TStack<T>)
 		Self.stack = stack
 		index = stack.size
 	End Method
 	
-	Public
-
 	Method Current:T()
 		Return stack.data[index]
 	End Method

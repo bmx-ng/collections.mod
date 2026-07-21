@@ -13,7 +13,7 @@ bbdoc: Represents a collection of elements that is maintained in sorted order. D
 End Rem
 Type TTreeSet<T> Implements ISet<T>
 
-	Private
+	Internal
 	Field root:TTreeSetNode<T>
 	Field size:Int
 	
@@ -420,7 +420,7 @@ Type TTreeSet<T> Implements ISet<T>
 		Return New TTreeSet<T>(array, comparator)
 	End Function
 
-Private
+Internal
 	Method RotateLeft( node:TTreeSetNode<T> )
 		Local child:TTreeSetNode<T>=node.rightNode
 		node.rightNode=child.leftNode
@@ -874,12 +874,10 @@ Public
 End Type
 
 Type TTreeSetNode<T>
-Private
-	Field parent:TTreeSetNode
-	Field leftNode:TTreeSetNode
-	Field rightNode:TTreeSetNode
+	Field parent:TTreeSetNode<T>
 	Field colour:Int
-Public
+	Field leftNode:TTreeSetNode<T>
+	Field rightNode:TTreeSetNode<T>
 	Field element:T
 	
 	Method NextNode:TTreeSetNode<T>()
@@ -919,17 +917,16 @@ Public
 End Type
 
 Type TTreeSetIterator<T> Implements IIterator<T> 
-	Private
+	Internal
 	Field initial:TTreeSetNode<T>
-	
-	Method New(initial:TTreeSetNode<T>)
-		Self.initial = initial
-	End Method
-	
 	Field node:TTreeSetNode<T>
 
 	Public
 
+	Method New(initial:TTreeSetNode<T>)
+		Self.initial = initial
+	End Method
+	
 	Method Current:T()
 		Return node.element
 	End Method
@@ -952,7 +949,7 @@ Type TTreeSetIterator<T> Implements IIterator<T>
 End Type
 
 Type TSubSet<T> Extends TTreeSet<T>
-Private
+
 	Field base:TTreeSet<T>
 	Field minimum:T
 	Field maximum:T
@@ -1090,7 +1087,7 @@ Public
 End Type
 
 Type TSubSetIterator<T> Extends TTreeSetIterator<T> 
-	Private
+
 	Field subset:TSubSet<T>
 	
 	Method New(initial:TTreeSetNode<T>, subset:TSubSet<T>)
