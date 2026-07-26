@@ -6,6 +6,7 @@ End Rem
 Module Collections.ImmutableList
 
 Import Collections.IList
+Import Collections.Errors
 
 Type TImmutableList<T> Implements IList<T>
 
