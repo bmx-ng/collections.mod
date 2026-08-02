@@ -262,7 +262,7 @@ Public
 		Return True
 	End Method
 
-	Private
+	Protected
 	Method Resize()
 		Local temp:T[] = New T[data.length * 2]
 		Local tempIndex:Int
