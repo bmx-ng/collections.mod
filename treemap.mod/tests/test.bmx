@@ -44,6 +44,25 @@ Type TTreeMapTest Extends TTest
         AssertTrue(m.ContainsKey("a") And m.ContainsKey("b") And m.ContainsKey("c"), "ContainsKey after add")
     End Method
 
+?bmxng2
+    Method TestEachInDeconstruction() { test }
+        Local m:TTreeMap<String,Int> = New TTreeMap<String,Int>
+        m.Add("b", 2)
+        m.Add("a", 1)
+        m.Add("c", 3)
+
+        Local expectedKeys:String[] = ["a", "b", "c"]
+        Local index:Int
+        For Local key, value = EachIn m
+            AssertEquals(expectedKeys[index], key, "Deconstruction preserves TreeMap key order")
+            AssertEquals(index + 1, value, "Deconstruction exposes the value paired with each TreeMap key")
+            index :+ 1
+        Next
+
+        AssertEquals(3, index, "Deconstruction visits every TreeMap entry")
+    End Method
+?
+
     Method TestAddDuplicateThrows() { test }
         Local m:TTreeMap<String,String> = New TTreeMap<String,String>
         m.Add("x","one")

@@ -573,7 +573,12 @@ Public
 	Method GetValue:V() Override
 		Return value
 	End Method
-		
+
+	Method Deconstruct(keyOut:K Var, valueOut:V Var) Override
+		keyOut = key
+		valueOut = value
+	End Method
+
 End Type
 
 Type TMapIterator<K,V> Implements IIterator<IMapNode<K,V>> 

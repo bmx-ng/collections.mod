@@ -441,6 +441,11 @@ Type TLinkedHashEntry<K,V> Implements IMapNode<K,V>
 		Return _value
 	End Method
 
+	Method Deconstruct(keyOut:K Var, valueOut:V Var)
+		keyOut = _key
+		valueOut = _value
+	End Method
+
 	Method HasNext:Int()
 		Return _next <> Null
 	End Method

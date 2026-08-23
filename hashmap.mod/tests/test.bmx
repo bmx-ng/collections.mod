@@ -58,6 +58,26 @@ Type THashMapTest Extends TTest
         AssertTrue(m.ContainsKey("a") And m.ContainsKey("b") And m.ContainsKey("c"), "ContainsKey after add")
     End Method
 
+?bmxng2
+    Method TestEachInDeconstruction() { test }
+        Local m:THashMap<String,Int> = New THashMap<String,Int>
+        m.Add("one", 1)
+        m.Add("two", 2)
+        m.Add("three", 3)
+
+        Local count:Int
+        Local total:Int
+        For Local key, value = EachIn m
+            AssertEquals(m[key], value, "Deconstructed value remains paired with its key")
+            count :+ 1
+            total :+ value
+        Next
+
+        AssertEquals(3, count, "Deconstruction visits every HashMap entry")
+        AssertEquals(6, total, "Deconstruction exposes every HashMap value")
+    End Method
+?
+
     Method TestAddDuplicateThrows() { test }
         Local m:THashMap<String,String> = New THashMap<String,String>
         m.Add("x","one")
