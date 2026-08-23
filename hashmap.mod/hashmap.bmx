@@ -373,6 +373,11 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 		Return map._values[index]
 	End Method
 
+	Method Deconstruct(keyOut:K Var, valueOut:V Var)
+		keyOut = map._keys[index]
+		valueOut = map._values[index]
+	End Method
+
 	Method HasNext:Int()
 		If map._dibs = Null Then Return False
 		Local cap:Int = map._dibs.Length

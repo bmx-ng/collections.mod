@@ -69,6 +69,26 @@ Type TLinkedHashMapTest Extends TTest
 		AssertEquals(3, i, "Iteration count matches")
 	End Method
 
+?bmxng2
+	Method TestEachInDeconstruction() { test }
+		Local m:TLinkedHashMap<String,Int> = New TLinkedHashMap<String,Int>
+		m.Add("first", 10)
+		m.Add("second", 20)
+		m.Add("third", 30)
+
+		Local expectedKeys:String[] = ["first", "second", "third"]
+		Local expectedValues:Int[] = [10, 20, 30]
+		Local index:Int
+		For Local key, value = EachIn m
+			AssertEquals(expectedKeys[index], key, "Deconstruction preserves LinkedHashMap insertion order")
+			AssertEquals(expectedValues[index], value, "Deconstruction exposes the value paired with each LinkedHashMap key")
+			index :+ 1
+		Next
+
+		AssertEquals(3, index, "Deconstruction visits every LinkedHashMap entry")
+	End Method
+?
+
 	Method TestAddDuplicateThrows() { test }
 		Local m:TLinkedHashMap<String,String> = New TLinkedHashMap<String,String>
 		m.Add("x","one")
