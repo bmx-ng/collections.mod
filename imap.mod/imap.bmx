@@ -10,6 +10,17 @@ about: A map node contains a key and its associated value.
 
 Nodes may also form a linked sequence. Use #HasNext to determine whether
 another node follows this one, and #NextNode to access it.
+
+As an #IDeconstruct2, a node can be deconstructed into its key and value. The
+key output is equivalent to #GetKey, and the value output is equivalent to
+#GetValue. Deconstructing a node does not advance the node sequence or modify
+the map entry.
+
+bcc2 invokes #Deconstruct automatically when a node is used by a two-binding
+EachIn loop:
+```blitzmax
+For Local key, value = EachIn map
+```
 End Rem
 Interface IMapNode<K, V> Extends IDeconstruct2<K, V>
 
@@ -24,22 +35,6 @@ Interface IMapNode<K, V> Extends IDeconstruct2<K, V>
 	returns: The value associated with this map entry.
 	End Rem
 	Method GetValue:V()
-
-	Rem
-	bbdoc: Deconstructs this node into its key and value components.
-	param: Receives the key associated with this map entry.
-	param: Receives the value associated with this map entry.
-	about: The key output is equivalent to #GetKey, and the value output is
-	equivalent to #GetValue. Deconstructing a node does not advance the node
-	sequence or modify the map entry.
-
-	bcc2 invokes this method automatically when a node is used by a two-binding
-	EachIn loop:
-	```blitzmax
-	For Local key, value = EachIn map
-	```
-	End Rem
-	Method Deconstruct(key:K Var, value:V Var)
 
 	Rem
 	bbdoc: Determines whether another node follows this node.
