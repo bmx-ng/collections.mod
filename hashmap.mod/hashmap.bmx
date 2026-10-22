@@ -19,6 +19,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 	Field _values:V[]
 	Field _dibs:Int[]      ' -1 = empty, >=0 distance from home
 	Field _size:Int
+	Field _mask:Int
 	Field _version:Int
 	Field _comparator:IEqualityComparator<K>
 	
@@ -47,9 +48,18 @@ Type THashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Method Clear()
-		_keys = Null
-		_values = Null
-		_dibs = Null
+		If _dibs Then
+			
+			Local dk:K
+			Local dv:V
+			
+			Local cap:Int = _dibs.Length
+			For Local i:Int = 0 Until cap
+				_dibs[i] = EMPTY
+				_keys[i] = dk
+				_values[i] = dv
+			Next
+		End If
 		_size = 0
 		_version :+ 1
 	End Method
@@ -169,6 +179,17 @@ Type THashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Private
+	
+	Function NextPowerOfTwo:Int(n:Int)
+		If n <= 0 Then Return 1
+		n :- 1
+		n = n | (n Shr 1)
+		n = n | (n Shr 2)
+		n = n | (n Shr 4)
+		n = n | (n Shr 8)
+		n = n | (n Shr 16)
+		Return n + 1
+	End Function
 
 	Method EnsureCapacity(minCount:Int)
 		Local cap:Int
@@ -180,21 +201,20 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 		If cap = 0 Then
 			' Start with at least 8 slots
-			Local newCap:Int = 8
-			While newCap < minCount * 2
-				newCap :* 2
-			Wend
-			Resize(newCap)
+			Resize( Max( minCount,8 ) )
 		Else
 			' Resize when load factor exceeds ~0.8
 			If Float(minCount) / Float(cap) > 0.8 Then
-				Local newCap:Int = cap * 2
-				Resize(newCap)
+				Resize( cap Shl 1 )
 			End If
 		End If
 	End Method
 
 	Method Resize(newCapacity:Int)
+		
+		newCapacity=NextPowerOfTwo( newCapacity )
+		_mask=newCapacity-1
+		
 		Local oldKeys:K[] = _keys
 		Local oldValues:V[] = _values
 		Local oldDibs:Int[] = _dibs
@@ -222,7 +242,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 	Method KeysEqual:Int(a:K, b:K)
 		If _comparator Then
 			Return _comparator.Equals(a, b)
-		End IF
+		End If
 
 		' DefaultComparator_Compare is assumed to work for K
 		Return DefaultComparator_Equals(a, b)
@@ -239,13 +259,10 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	' Robin Hood lookup
 	Method FindIndex:Int(key:K)
-		If _dibs = Null Then Return -1
-
-		Local cap:Int = _dibs.Length
-		If cap = 0 Then Return -1
-
+		If Not _dibs Or _dibs.Length = 0 Then Return -1
+		
 		Local hash:Int = GetHash(key) & $7fffffff
-		Local idx:Int = hash Mod cap
+		Local idx:Int = hash & _mask
 		Local dib:Int = 0
 
 		While True
@@ -266,7 +283,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 				Return idx
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dib :+ 1
 		Wend
 
@@ -281,9 +298,9 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	' Core Robin Hood insertion, assumes table has space
 	Method InsertNewNoResize(key:K, value:V)
-		Local cap:Int = _dibs.Length
+
 		Local hash:Int = GetHash(key) & $7fffffff
-		Local idx:Int = hash Mod cap
+		Local idx:Int = hash & _mask
 		Local dibVal:Int = 0
 
 		While True
@@ -314,18 +331,17 @@ Type THashMap<K, V> Implements IMap<K, V>
 				dibVal = tmpDib
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dibVal :+ 1
 		Wend
 	End Method
 
 	' Backwards-shift deletion
 	Method RemoveAt(index:Int)
-		Local cap:Int = _dibs.Length
 
 		Local i:Int = index
 		While True
-			Local j:Int = (i + 1) Mod cap
+			Local j:Int = (i + 1) & _mask
 
 			If _dibs[j] = EMPTY Or _dibs[j] = 0 Then
 				' j is empty or its occupant is at home; just clear i and stop
