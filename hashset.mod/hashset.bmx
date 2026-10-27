@@ -13,7 +13,7 @@ Import Collections.ArrayList
 
 Rem
 bbdoc: Represents a set of unique elements backed by a hash table.
-about: Duplicate elements are not allowed. Equality and hashing are determined by the optional #IEqualityComparator supplied at construction time (or the default comparator for type #T).
+about: Duplicate elements are not allowed. Equality and hashing are determined by the optional #IEqualityComparator supplied at construction time (or the default comparator for type T).
 End Rem
 Type THashSet<T> Implements ISet<T>
 
@@ -23,7 +23,7 @@ Private
 Public
 
 	Rem
-	bbdoc: Creates an empty #THashSet using the default comparator/hash for #T.
+	bbdoc: Creates an empty #THashSet using the default comparator/hash for T.
 	End Rem
 	Method New()
 		map = New THashMap<T,Int>
