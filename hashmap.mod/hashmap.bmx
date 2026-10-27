@@ -10,6 +10,16 @@ Import Collections.ICollection
 Import Collections.ImmutableList
 Import Collections.Errors
 
+Rem
+bbdoc: A generic hash map implementation using Robin Hood hashing.
+about: #THashMap provides average O(1) lookup, insertion and removal of
+key/value pairs. Keys are compared and hashed using an optional
+#IEqualityComparator; when no comparator is supplied the default equality
+and hash functions for the key type are used.
+
+Iteration order is undefined. The map automatically resizes when the load
+factor exceeds approximately 0.8.
+End Rem
 Type THashMap<K, V> Implements IMap<K, V>
 
 	Internal
@@ -24,13 +34,28 @@ Type THashMap<K, V> Implements IMap<K, V>
 	
 	Public
 
+	Rem
+	bbdoc: Creates a new empty #THashMap using the default equality comparator.
+	End Rem
 	Method New()
 	End Method
 
+	Rem
+	bbdoc: Creates a new empty #THashMap using the specified equality comparator.
+	param: An optional equality comparator for the keys. When #Null the
+	default equality and hash functions for type K are used.
+	End Rem
 	Method New(comparator:IEqualityComparator<K>)
 		_comparator = comparator
 	End Method
 
+	Rem
+	bbdoc: Creates a new #THashMap with the specified initial capacity.
+	param: The initial number of entries the map should be able to hold
+	before resizing.
+	param: An optional equality comparator for the keys. When #Null the
+	default equality and hash functions for type K are used.
+	End Rem
 	Method New(initialCapacity:Int, comparator:IEqualityComparator<K> = Null)
 		_comparator = comparator
 		If initialCapacity > 0 Then
@@ -38,14 +63,24 @@ Type THashMap<K, V> Implements IMap<K, V>
 		End If
 	End Method
 
+	Rem
+	bbdoc: Gets the number of key/value pairs contained in the #THashMap.
+	returns: The number of elements currently stored in the map.
+	End Rem
 	Method Count:Int()
 		Return _size
 	End Method
 
+	Rem
+	bbdoc: Returns #True if the #THashMap is empty, otherwise #False.
+	End Rem
 	Method IsEmpty:Int()
 		Return _size = 0
 	End Method
 
+	Rem
+	bbdoc: Removes all elements from the #THashMap.
+	End Rem
 	Method Clear()
 		_keys = Null
 		_values = Null
@@ -54,6 +89,11 @@ Type THashMap<K, V> Implements IMap<K, V>
 		_version :+ 1
 	End Method
 
+	Rem
+	bbdoc: Copies the map entries into the supplied array starting at the given index.
+	param: The destination array of #IMapNode entries.
+	param: The zero-based index in @array at which copying begins.
+	End Rem
 	Method CopyTo(array:IMapNode<K,V>[], index:Int = 0)
 		If _dibs = Null Then Return
 		Local cap:Int = _dibs.Length
@@ -66,10 +106,20 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Next
 	End Method
 
+	Rem
+	bbdoc: Returns an iterator that iterates through the #THashMap.
+	returns: An #IIterator over the map's #IMapNode entries.
+	about: The iteration order is undefined. Modifying the map while an
+	iterator is active throws #TInvalidOperationException.
+	End Rem
 	Method GetIterator:IIterator<IMapNode<K,V>>()
 		Return New THashMapIterator<K,V>(Self)
 	End Method
 
+	Rem
+	bbdoc: Returns a collection containing the map's keys.
+	returns: An #ICollection of the keys currently stored in the map.
+	End Rem
 	Method Keys:ICollection<K>()
 		If _size = 0 Then
 			Return New TEmptyImmutableList<K>
@@ -78,6 +128,11 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return New THashMapKeysView<K,V>(Self)
 	End Method
 	
+	Rem
+	bbdoc: Returns a collection containing the map's values.
+	returns: An #ICollection of the values currently stored in the map.
+	about: Values are not required to be unique.
+	End Rem
 	Method Values:ICollection<V>()
 		If _size = 0 Then
 			Return New TEmptyImmutableList<V>
@@ -86,7 +141,15 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return New THashMapValuesView<K,V>(Self)
 	End Method
 
-	' Add: throws if key already exists
+	Rem
+	bbdoc: Adds a new key/value association.
+	param: The key to add.
+	param: The value to associate with the key.
+	about: Throws #TArgumentException if the key already exists in the map.
+
+	Use #Put or the indexed assignment operator when an existing value should
+	be replaced.
+	End Rem
 	Method Add(key:K, value:V)
 		Local idx:Int = FindIndex(key)
 		If idx >= 0 Then
@@ -95,7 +158,14 @@ Type THashMap<K, V> Implements IMap<K, V>
 		InsertNew(key, value)
 	End Method
 
-	' Put: upsert; returns old value or default/Null if new
+	Rem
+	bbdoc: Adds or replaces a key/value association.
+	param: The key to add or update.
+	param: The value to associate with the key.
+	returns: The value previously associated with the key, or the default value of type V if the key was not present.
+	about: If the key does not exist, a new association is created. Otherwise the
+	existing value associated with the key is replaced.
+	End Rem
 	Method Put:V(key:K, value:V)
 		Local idx:Int = FindIndex(key)
 		If idx >= 0 Then
@@ -111,10 +181,20 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return def
 	End Method
 
+	Rem
+	bbdoc: Determines whether the map contains a key.
+	param: The key to locate.
+	returns: #True if the key is present; otherwise #False.
+	End Rem
 	Method ContainsKey:Int(key:K)
 		Return FindIndex(key) >= 0
 	End Method
 
+	Rem
+	bbdoc: Removes the association for a key.
+	param: The key to remove.
+	returns: #True if the key was removed; otherwise #False.
+	End Rem
 	Method Remove:Int(key:K)
 		Local idx:Int = FindIndex(key)
 		If idx < 0 Then
@@ -125,6 +205,14 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return True
 	End Method
 
+	Rem
+	bbdoc: Attempts to retrieve the value associated with a key.
+	param: The key to locate.
+	param: Receives the associated value if the key is found.
+	returns: #True if the key exists; otherwise #False.
+	about: Unlike the indexed access operator, this method distinguishes between a
+	missing key and a key associated with the default value of type V.
+	End Rem
 	Method TryGetValue:Int(key:K, value:V Var)
 		Local idx:Int = FindIndex(key)
 		If idx >= 0 Then
@@ -134,6 +222,12 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return False
 	End Method
 
+	Rem
+	bbdoc: Returns the value associated with a key.
+	param: The key to locate.
+	returns: The value associated with the specified key, or the default value of type V if the key is not present.
+	about: Use #ContainsKey or #TryGetValue when the key may not exist.
+	End Rem
 	Method Operator [] :V(key:K)
 		Local idx:Int = FindIndex(key)
 		If idx >= 0 Then
@@ -144,6 +238,13 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Return def
 	End Method
 
+	Rem
+	bbdoc: Adds or replaces the value associated with a key.
+	param: The key to add or update.
+	param: The value to associate with the key.
+	about: This operator behaves the same as #Put, except that the previous value is
+	not returned.
+	End Rem
 	Method Operator []= (key:K, value:V)
 		Local idx:Int = FindIndex(key)
 		If idx >= 0 Then
@@ -154,6 +255,11 @@ Type THashMap<K, V> Implements IMap<K, V>
 		End If
 	End Method
 
+	Rem
+	bbdoc: Determines whether the map contains a specific value.
+	param: The value to locate.
+	returns: #True if the map contains an element with the specified value; otherwise #False.
+	End Rem
 	Method ContainsValue:Int(value:V)
 		If _dibs = Null Then Return False
 
@@ -222,7 +328,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 	Method KeysEqual:Int(a:K, b:K)
 		If _comparator Then
 			Return _comparator.Equals(a, b)
-		End IF
+		End If
 
 		' DefaultComparator_Compare is assumed to work for K
 		Return DefaultComparator_Equals(a, b)
@@ -365,19 +471,36 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 		Self.index = index
 	End Method
 
+	Rem
+	bbdoc: Returns the key stored in this node.
+	returns: The key associated with this map entry.
+	End Rem
 	Method GetKey:K()
 		Return map._keys[index]
 	End Method
 
+	Rem
+	bbdoc: Returns the value stored in this node.
+	returns: The value associated with this map entry.
+	End Rem
 	Method GetValue:V()
 		Return map._values[index]
 	End Method
 
+	Rem
+	bbdoc: Deconstructs this node into its key and value components.
+	param: Receives the key associated with this map entry.
+	param: Receives the value associated with this map entry.
+	End Rem
 	Method Deconstruct(keyOut:K Var, valueOut:V Var)
 		keyOut = map._keys[index]
 		valueOut = map._values[index]
 	End Method
 
+	Rem
+	bbdoc: Determines whether another node follows this node.
+	returns: #True if a subsequent node is available; otherwise #False.
+	End Rem
 	Method HasNext:Int()
 		If map._dibs = Null Then Return False
 		Local cap:Int = map._dibs.Length
@@ -391,6 +514,10 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 		Return False
 	End Method
 
+	Rem
+	bbdoc: Returns the next node in the sequence.
+	returns: The next map node, or #Null if no further nodes exist.
+	End Rem
 	Method NextNode:IMapNode<K,V>()
 		If map._dibs = Null Then Return Null
 		Local cap:Int = map._dibs.Length
@@ -422,10 +549,19 @@ Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 		version = map._version
 	End Method
 
+	Rem
+	bbdoc: Returns the current element in the iteration.
+	End Rem
 	Method Current:IMapNode<K,V>()
 		Return currentNode
 	End Method
 
+	Rem
+	bbdoc: Advances the iterator to the next element.
+	returns: #True if the iterator was successfully advanced; otherwise #False.
+	about: Throws #TInvalidOperationException if the underlying map was modified
+	after the iterator was created.
+	End Rem
 	Method MoveNext:Int()
 		If version <> map._version Then
 			Throw New TInvalidOperationException("Collection was modified during iteration")
@@ -461,18 +597,30 @@ Type THashMapKeysView<K,V> Implements ICollection<K>
 		_map = map
 	End Method
 
+	Rem
+	bbdoc: Gets the number of keys in the view.
+	End Rem
 	Method Count:Int()
 		Return _map.Count()
 	End Method
 	
+	Rem
+	bbdoc: Returns #True if the keys view is empty.
+	End Rem
 	Method IsEmpty:Int()
 		Return _map.IsEmpty()
 	End Method
 
+	Rem
+	bbdoc: Not supported. Throws #TUnsupportedOperationException.
+	End Rem
 	Method Clear()
 		UnsupportedOperationError()
 	End Method
 
+	Rem
+	bbdoc: Copies the keys into the supplied array starting at the given index.
+	End Rem
 	Method CopyTo(array:K[], index:Int = 0)
 		Local i:Int = index
 		If _map._dibs Then
@@ -485,6 +633,9 @@ Type THashMapKeysView<K,V> Implements ICollection<K>
 		End If
 	End Method
 
+	Rem
+	bbdoc: Returns an iterator over the keys.
+	End Rem
 	Method GetIterator:IIterator<K>()
 		Return New THashMapKeysIterator<K,V>(_map)
 	End Method
@@ -540,18 +691,30 @@ Type THashMapValuesView<K,V> Implements ICollection<V>
 		_map = map
 	End Method
 
+	Rem
+	bbdoc: Gets the number of values in the view.
+	End Rem
 	Method Count:Int()
 		Return _map.Count()
 	End Method
 
+	Rem
+	bbdoc: Returns #True if the values view is empty.
+	End Rem
 	Method IsEmpty:Int()
 		Return _map.IsEmpty()
 	End Method
 
+	Rem
+	bbdoc: Not supported. Throws #TUnsupportedOperationException.
+	End Rem
 	Method Clear()
 		UnsupportedOperationError()
 	End Method
 
+	Rem
+	bbdoc: Copies the values into the supplied array starting at the given index.
+	End Rem
 	Method CopyTo(array:V[], index:Int = 0)
 		Local i:Int = index
 		If _map._dibs Then
@@ -564,6 +727,9 @@ Type THashMapValuesView<K,V> Implements ICollection<V>
 		End If
 	End Method
 
+	Rem
+	bbdoc: Returns an iterator over the values.
+	End Rem
 	Method GetIterator:IIterator<V>()
 		Return New THashMapValuesIterator<K,V>(_map)
 	End Method
