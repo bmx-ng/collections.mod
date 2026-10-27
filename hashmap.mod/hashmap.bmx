@@ -42,8 +42,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	Rem
 	bbdoc: Creates a new empty #THashMap using the specified equality comparator.
-	param: An optional equality comparator for the keys. When #Null the
-	default equality and hash functions for type K are used.
+	param: An optional equality comparator for the keys. When #Null the default equality and hash functions for type K are used.
 	End Rem
 	Method New(comparator:IEqualityComparator<K>)
 		_comparator = comparator
@@ -51,10 +50,8 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	Rem
 	bbdoc: Creates a new #THashMap with the specified initial capacity.
-	param: The initial number of entries the map should be able to hold
-	before resizing.
-	param: An optional equality comparator for the keys. When #Null the
-	default equality and hash functions for type K are used.
+	param: The initial number of entries the map should be able to hold before resizing.
+	param: An optional equality comparator for the keys. When #Null the default equality and hash functions for type K are used.
 	End Rem
 	Method New(initialCapacity:Int, comparator:IEqualityComparator<K> = Null)
 		_comparator = comparator
@@ -458,6 +455,12 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 End Type
 
+Rem
+bbdoc: A single key/value entry in a #THashMap.
+about: Represents a map entry at a specific slot in the underlying hash table.
+Instances are typically obtained via iteration or #CopyTo rather than constructed
+directly.
+End Rem
 Type THashMapNode<K, V> Implements IMapNode<K, V>
 
 	Private
@@ -466,6 +469,11 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 
 	Public
 
+	Rem
+	bbdoc: Creates a node referencing the entry at the given index in the map.
+	param: The #THashMap that owns this entry.
+	param: The slot index of the entry within the map's internal arrays.
+	End Rem
 	Method New(map:THashMap<K,V>, index:Int)
 		Self.map = map
 		Self.index = index
@@ -533,6 +541,12 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 
 End Type
 
+Rem
+bbdoc: An iterator over the entries of a #THashMap.
+about: Yields #IMapNode instances. The iteration order is undefined.
+Modifying the underlying map while the iterator is active throws
+#TInvalidOperationException.
+End Rem
 Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 
 	Private
@@ -543,6 +557,10 @@ Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 
 	Public
 
+	Rem
+	bbdoc: Creates a new iterator positioned before the first entry of the map.
+	param: The #THashMap to iterate.
+	End Rem
 	Method New(map:THashMap<K,V>)
 		Self.map = map
 		idx = -1
@@ -588,11 +606,21 @@ Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 
 End Type
 
+Rem
+bbdoc: A read-only view of the keys contained in a #THashMap.
+about: The view is backed by the map; changes to the map are reflected in the
+view. The view does not support modification (e.g. #Clear throws
+#TUnsupportedOperationException). Iteration order is undefined.
+End Rem
 Type THashMapKeysView<K,V> Implements ICollection<K>
 	Private
 	Field _map:THashMap<K,V>
 
 	Public
+	Rem
+	bbdoc: Creates a keys view for the specified map.
+	param: The #THashMap whose keys are exposed by this view.
+	End Rem
 	Method New(map:THashMap<K,V>)
 		_map = map
 	End Method
@@ -641,6 +669,11 @@ Type THashMapKeysView<K,V> Implements ICollection<K>
 	End Method
 End Type
 
+Rem
+bbdoc: An iterator over the keys of a #THashMap.
+about: The iteration order is undefined. Modifying the underlying map while
+the iterator is active throws #TInvalidOperationException.
+End Rem
 Type THashMapKeysIterator<K,V> Implements IIterator<K>
 	Private
 	Field _map:THashMap<K,V>
@@ -649,16 +682,29 @@ Type THashMapKeysIterator<K,V> Implements IIterator<K>
 	Field _version:Int
 
 	Public
+	Rem
+	bbdoc: Creates a new keys iterator positioned before the first key.
+	param: The #THashMap whose keys will be iterated.
+	End Rem
 	Method New(map:THashMap<K,V>)
 		_map = map
 		_idx = -1
 		_version = map._version
 	End Method
 
+	Rem
+	bbdoc: Returns the current key in the iteration.
+	End Rem
 	Method Current:K()
 		Return _current
 	End Method
 
+	Rem
+	bbdoc: Advances the iterator to the next key.
+	returns: #True if the iterator was successfully advanced; otherwise #False.
+	about: Throws #TInvalidOperationException if the underlying map was modified
+	after the iterator was created.
+	End Rem
 	Method MoveNext:Int()
 		If _version <> _map._version Then
 			Throw New TInvalidOperationException("Collection was modified during iteration")
@@ -682,11 +728,22 @@ Type THashMapKeysIterator<K,V> Implements IIterator<K>
 	End Method
 End Type
 
+Rem
+bbdoc: A read-only view of the values contained in a #THashMap.
+about: The view is backed by the map; changes to the map are reflected in the
+view. Values are not required to be unique. The view does not support
+modification (e.g. #Clear throws #TUnsupportedOperationException).
+Iteration order is undefined.
+End Rem
 Type THashMapValuesView<K,V> Implements ICollection<V>
 	Private
 	Field _map:THashMap<K,V>
 
 	Public
+	Rem
+	bbdoc: Creates a values view for the specified map.
+	param: The #THashMap whose values are exposed by this view.
+	End Rem
 	Method New(map:THashMap<K,V>)
 		_map = map
 	End Method
@@ -735,6 +792,11 @@ Type THashMapValuesView<K,V> Implements ICollection<V>
 	End Method
 End Type
 
+Rem
+bbdoc: An iterator over the values of a #THashMap.
+about: The iteration order is undefined. Modifying the underlying map while
+the iterator is active throws #TInvalidOperationException.
+End Rem
 Type THashMapValuesIterator<K,V> Implements IIterator<V>
 	Private
 	Field _map:THashMap<K,V>
@@ -743,16 +805,29 @@ Type THashMapValuesIterator<K,V> Implements IIterator<V>
 	Field _version:Int
 
 	Public
+	Rem
+	bbdoc: Creates a new values iterator positioned before the first value.
+	param: The #THashMap whose values will be iterated.
+	End Rem
 	Method New(map:THashMap<K,V>)
 		_map = map
 		_idx = -1
 		_version = map._version
 	End Method
 
+	Rem
+	bbdoc: Returns the current value in the iteration.
+	End Rem
 	Method Current:V()
 		Return _current
 	End Method
 
+	Rem
+	bbdoc: Advances the iterator to the next value.
+	returns: #True if the iterator was successfully advanced; otherwise #False.
+	about: Throws #TInvalidOperationException if the underlying map was modified
+	after the iterator was created.
+	End Rem
 	Method MoveNext:Int()
 		If _version <> _map._version Then
 			Throw New TInvalidOperationException("Collection was modified during iteration")
