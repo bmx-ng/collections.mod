@@ -1,7 +1,7 @@
 SuperStrict
 
 Rem
-bbdoc: Collections/List
+bbdoc: Collections/IList
 about: Lists are ordered collections that support indexed access, insertion and removal.
 End Rem
 Module Collections.IList
