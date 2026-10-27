@@ -2,6 +2,8 @@ SuperStrict
 
 Rem
 bbdoc: Collections/HashSet
+about: A hash-based set implementation that stores unique elements with average O(1) add, remove and contains operations.
+It is backed by a #THashMap and does not maintain any particular element order.
 End Rem
 Module Collections.HashSet
 
@@ -9,6 +11,10 @@ Import Collections.ISet
 Import Collections.HashMap
 Import Collections.ArrayList
 
+Rem
+bbdoc: Represents a set of unique elements backed by a hash table.
+about: Duplicate elements are not allowed. Equality and hashing are determined by the optional #IEqualityComparator supplied at construction time (or the default comparator for type #T).
+End Rem
 Type THashSet<T> Implements ISet<T>
 
 Private
@@ -17,21 +23,21 @@ Private
 Public
 
 	Rem
-	bbdoc: Creates an empty THashSet using the default comparator/hash for T.
+	bbdoc: Creates an empty #THashSet using the default comparator/hash for #T.
 	End Rem
 	Method New()
 		map = New THashMap<T,Int>
 	End Method
 
 	Rem
-	bbdoc: Creates an empty THashSet using the specified comparator.
+	bbdoc: Creates an empty #THashSet using the specified comparator.
 	End Rem
 	Method New(comparator:IEqualityComparator<T>)
 		map = New THashMap<T,Int>(comparator)
 	End Method
 
 	Rem
-	bbdoc: Creates a THashSet initialised from an array of elements.
+	bbdoc: Creates a #THashSet initialised from an array of elements.
 	End Rem
 	Method New(array:T[], comparator:IEqualityComparator<T> = Null)
 		map = New THashMap<T,Int>(comparator)
@@ -43,7 +49,7 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Creates a THashSet initialised from an IIterable of elements.
+	bbdoc: Creates a #THashSet initialised from an #IIterable of elements.
 	End Rem
 	Method New(iterable:IIterable<T>, comparator:IEqualityComparator<T> = Null)
 		map = New THashMap<T,Int>(comparator)
@@ -57,6 +63,9 @@ Public
 	' ------------------------------
 	' IIterable<T>
 	' ------------------------------
+	Rem
+	bbdoc: Returns an iterator that iterates through the elements of the set.
+	End Rem
 	Method GetIterator:IIterator<T>() Override
 		Return New THashSetIterator<T>(map)
 	End Method
@@ -64,10 +73,16 @@ Public
 	' ------------------------------
 	' ICollection<T>
 	' ------------------------------
+	Rem
+	bbdoc: Gets the number of elements contained in the set.
+	End Rem
 	Method Count:Int() Override
 		Return map.Count()
 	End Method
 
+	Rem
+	bbdoc: Copies the elements of the set to an array, starting at the specified array index.
+	End Rem
 	Method CopyTo(array:T[], index:Int = 0) Override
 		Local i:Int = index
 		For Local node:IMapNode<T,Int> = EachIn map
@@ -76,10 +91,16 @@ Public
 		Next
 	End Method
 
+	Rem
+	bbdoc: Returns #True if the set contains no elements; otherwise, #False.
+	End Rem
 	Method IsEmpty:Int() Override
 		Return map.IsEmpty()
 	End Method
 
+	Rem
+	bbdoc: Removes all elements from the set.
+	End Rem
 	Method Clear() Override
 		map.Clear()
 	End Method
@@ -90,7 +111,7 @@ Public
 
 	Rem
 	bbdoc: Adds an element to the set.
-	returns: True if the element was added; False if it was already present.
+	returns: #True if the element was added; #False if it was already present.
 	End Rem
 	Method Add:Int(element:T) Override
 		If map.ContainsKey(element) Then
@@ -102,6 +123,7 @@ Public
 
 	Rem
 	bbdoc: Determines whether the set contains the specified element.
+	returns: #True if the element is found; otherwise, #False.
 	End Rem
 	Method Contains:Int(element:T) Override
 		Return map.ContainsKey(element)
@@ -109,7 +131,7 @@ Public
 
 	Rem
 	bbdoc: Removes a specified element from the set.
-	returns: True if the element was found and removed; otherwise, False.
+	returns: #True if the element was found and removed; otherwise, #False.
 	End Rem
 	Method Remove:Int(element:T) Override
 		Return map.Remove(element)
@@ -120,7 +142,8 @@ Public
 	' ------------------------------
 
 	Rem
-	bbdoc: Removes any element in the current set that is also in other.
+	bbdoc: Removes any element in the current set that is also in @other.
+	about: After this operation the set contains only those elements that do not appear in @other.
 	End Rem
 	Method Complement(other:IIterable<T>)
 		If Not other Then
@@ -149,7 +172,7 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Modifies the current set so that it contains only elements that are also in other.
+	bbdoc: Modifies the current set so that it contains only elements that are also in @other.
 	End Rem
 	Method Intersection(other:IIterable<T>)
 		If Not other Then
@@ -184,7 +207,8 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Determines whether the set is a proper subset of other.
+	bbdoc: Determines whether the set is a proper subset of @other.
+	returns: #True if every element of this set exists in @other and @other contains at least one additional element; otherwise #False.
 	End Rem
 	Method IsProperSubsetOf:Int(other:IIterable<T>)
 		If Not other Then
@@ -215,7 +239,8 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Determines whether the set is a proper superset of other.
+	bbdoc: Determines whether the set is a proper superset of @other.
+	returns: #True if every element of @other exists in this set and this set contains at least one additional element; otherwise #False.
 	End Rem
 	Method IsProperSupersetOf:Int(other:IIterable<T>)
 		If Not other Then
@@ -247,7 +272,8 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Determines whether the set is a subset of other.
+	bbdoc: Determines whether the set is a subset of @other.
+	returns: #True if every element of this set exists in @other; otherwise #False.
 	End Rem
 	Method IsSubsetOf:Int(other:IIterable<T>)
 		If Not other Then
@@ -281,7 +307,8 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Determines whether the set is a superset of other.
+	bbdoc: Determines whether the set is a superset of @other.
+	returns: #True if every element of @other exists in this set; otherwise #False.
 	End Rem
 	Method IsSupersetOf:Int(other:IIterable<T>)
 		If Not other Then
@@ -310,7 +337,8 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Determines whether the current set and other share at least one common element.
+	bbdoc: Determines whether the current set and @other share at least one common element.
+	returns: #True if the collections contain at least one value in common; otherwise #False.
 	End Rem
 	Method Overlaps:Int(other:IIterable<T>)
 		If Not other Then
@@ -331,8 +359,7 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Modifies the current set so that it contains only elements
-	that are present either in the current set or in other, but not both.
+	bbdoc: Modifies the current set so that it contains only elements that are present either in the current set or in @other, but not both.
 	End Rem
 	Method SymmetricDifference(other:IIterable<T>)
 		If Not other Then
@@ -364,8 +391,7 @@ Public
 	End Method
 
 	Rem
-	bbdoc: Modifies the current set so that it contains all elements
-	present in either the current set or other.
+	bbdoc: Modifies the current set so that it contains all elements present in either the current set or @other.
 	End Rem
 	Method UnionOf(other:IIterable<T>)
 		If Not other Then
@@ -387,6 +413,7 @@ Public
 
 	Rem
 	bbdoc: Searches the set for a given value and returns the equal value it finds, if any.
+	returns: #True if an equal value was found; otherwise #False. When #True, @actualValue receives the stored element.
 	End Rem
 	Method TryGetValue:Int(value:T, actualValue:T Var)
 		If Contains(value) Then
@@ -398,6 +425,7 @@ Public
 
 	Rem
 	bbdoc: Converts the set to an array of elements.
+	returns: A new array containing every element of the set.
 	End Rem
 	Method ToArray:T[]()
 		Local arr:T[Count()]
@@ -412,7 +440,7 @@ Public
 End Type
 
 Rem
-bbdoc: Iterator over THashSet elements, backed by the underlying THashMap iterator.
+bbdoc: Iterator over #THashSet elements, backed by the underlying #THashMap iterator.
 End Rem
 Type THashSetIterator<T> Implements IIterator<T>
 
@@ -423,15 +451,25 @@ Private
 
 Public
 
+	Rem
+	bbdoc: Creates a new iterator for the given map.
+	End Rem
 	Method New(map:THashMap<T,Int>)
 		Self.map = map
 		inner = map.GetIterator()
 	End Method
 
+	Rem
+	bbdoc: Gets the element at the current position of the iterator.
+	End Rem
 	Method Current:T()
 		Return currentElement
 	End Method
 
+	Rem
+	bbdoc: Advances the iterator to the next element of the set.
+	returns: #True if the iterator was successfully advanced to the next element; #False if the iterator has passed the end of the collection.
+	End Rem
 	Method MoveNext:Int()
 		If inner.MoveNext() Then
 			Local node:IMapNode<T,Int> = inner.Current()
