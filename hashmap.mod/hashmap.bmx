@@ -133,13 +133,16 @@ Type THashMap<K, V> Implements IMap<K, V>
 	param: The zero-based index in @array at which copying begins.
 	End Rem
 	Method CopyTo(array:IMapNode<K,V>[], index:Int = 0)
-		If _dibs = Null Then Return
+		If _size = 0 Then Return
 		Local cap:Int = _dibs.Length
 		Local iOut:Int = index
+		Local remaining:Int = _size
 		For Local i:Int = 0 Until cap
 			If _dibs[i] <> EMPTY Then
 				array[iOut] = New THashMapNode<K,V>(Self, i)
 				iOut :+ 1
+				remaining :- 1
+				If remaining = 0 Then Exit
 			End If
 		Next
 	End Method
@@ -315,13 +318,16 @@ Type THashMap<K, V> Implements IMap<K, V>
 	returns: #True if the map contains an element with the specified value; otherwise #False.
 	End Rem
 	Method ContainsValue:Int(value:V)
-		If _dibs = Null Then Return False
+		If _size = 0 Then Return False
 
+		Local remaining:Int = _size
 		For Local i:Int = 0 Until _dibs.Length
 			If _dibs[i] <> EMPTY Then
 				If _values[i] = value Then
 					Return True
 				End If
+				remaining :- 1
+				If remaining = 0 Then Exit
 			End If
 		Next
 
@@ -712,11 +718,14 @@ Type THashMapKeysView<K,V> Implements ICollection<K>
 	End Rem
 	Method CopyTo(array:K[], index:Int = 0)
 		Local i:Int = index
-		If _map._dibs Then
+		If _map._size Then
+			Local remaining:Int = _map._size
 			For Local p:Int = 0 Until _map._dibs.Length
 				If _map._dibs[p] <> 0 Then
 					array[i] = _map._keys[p]
 					i :+ 1
+					remaining :- 1
+					If remaining = 0 Then Exit
 				End If
 			Next
 		End If
@@ -835,11 +844,14 @@ Type THashMapValuesView<K,V> Implements ICollection<V>
 	End Rem
 	Method CopyTo(array:V[], index:Int = 0)
 		Local i:Int = index
-		If _map._dibs Then
+		If _map._size Then
+			Local remaining:Int = _map._size
 			For Local p:Int = 0 Until _map._dibs.Length
 				If _map._dibs[p] <> 0 Then
 					array[i] = _map._values[p]
 					i :+ 1
+					remaining :- 1
+					If remaining = 0 Then Exit
 				End If
 			Next
 		End If

@@ -108,6 +108,14 @@ Type THashSetTest Extends TTest
 			threw = True
 		End Try
 		AssertTrue(Not threw, "Duplicate Add does not invalidate an iterator")
+
+		AssertTrue(s.Add(3), "Unique Add changes the set")
+		Try
+			iterator.MoveNext()
+		Catch e:TInvalidOperationException
+			threw = True
+		End Try
+		AssertTrue(threw, "Unique Add invalidates the key-backed iterator")
 	End Method
 
     Method TestUnionIntersectionSymmetricDifference() { test }
@@ -219,6 +227,23 @@ Type THashSetTest Extends TTest
         For Local k:String = EachIn ["a","b","c"]
             AssertTrue(s2.Contains(k), "Iterable ctor contains " + k)
         Next
+
+		Local emptyArray:String[] = New String[0]
+		Local empty1:THashSet<String> = New THashSet<String>(emptyArray)
+		AssertTrue(empty1.IsEmpty(), "Empty array ctor remains empty")
+
+		Local empty2:THashSet<String> = New THashSet<String>(empty1, Null)
+		AssertTrue(empty2.IsEmpty(), "Empty counted iterable ctor remains empty")
+
+		Local duplicateArray:Int[1000]
+		For Local i:Int = 0 Until duplicateArray.Length
+			duplicateArray[i] = i Mod 10
+		Next
+		Local duplicateSet:THashSet<Int> = New THashSet<Int>(duplicateArray)
+		AssertEquals(10, duplicateSet.Count(), "Presized array ctor still removes duplicates")
+		For Local i:Int = 0 Until 10
+			AssertTrue(duplicateSet.Contains(i), "Presized array ctor contains " + i)
+		Next
     End Method
 
     Method TestToArray() { test }
@@ -239,6 +264,18 @@ Type THashSetTest Extends TTest
         For Local i:Int = 1 To 5
             AssertTrue(seen[i], "ToArray contains " + i)
         Next
+
+		Local copied:Int[8]
+		For Local i:Int = 0 Until copied.Length
+			copied[i] = -1
+		Next
+		s.CopyTo(copied, 2)
+		AssertEquals(-1, copied[0], "CopyTo preserves elements before its offset")
+		AssertEquals(-1, copied[1], "CopyTo preserves the element immediately before its offset")
+		AssertEquals(-1, copied[7], "CopyTo preserves elements after the copied set")
+		For Local i:Int = 2 Until 7
+			AssertTrue(s.Contains(copied[i]), "CopyTo writes a set element at index " + i)
+		Next
     End Method
 
     Method TestTryGetValue() { test }

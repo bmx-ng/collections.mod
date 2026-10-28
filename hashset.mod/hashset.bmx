@@ -18,7 +18,7 @@ End Rem
 Type THashSet<T> Implements ISet<T>
 
 Private
-	Field map:THashMap<T,Int>  ' dummy value, e.g. always 1
+	Field map:THashMap<T,Byte>  ' compact dummy value, always 1
 
 Public
 
@@ -26,21 +26,23 @@ Public
 	bbdoc: Creates an empty #THashSet using the default comparator/hash for T.
 	End Rem
 	Method New()
-		map = New THashMap<T,Int>
+		map = New THashMap<T,Byte>
 	End Method
 
 	Rem
 	bbdoc: Creates an empty #THashSet using the specified comparator.
 	End Rem
 	Method New(comparator:IEqualityComparator<T>)
-		map = New THashMap<T,Int>(comparator)
+		map = New THashMap<T,Byte>(comparator)
 	End Method
 
 	Rem
 	bbdoc: Creates a #THashSet initialised from an array of elements.
 	End Rem
 	Method New(array:T[], comparator:IEqualityComparator<T> = Null)
-		map = New THashMap<T,Int>(comparator)
+		Local initialCapacity:Int
+		If array Then initialCapacity = array.Length
+		map = New THashMap<T,Byte>(initialCapacity, comparator)
 		If array Then
 			For Local element:T = EachIn array
 				Add(element)
@@ -52,7 +54,10 @@ Public
 	bbdoc: Creates a #THashSet initialised from an #IIterable of elements.
 	End Rem
 	Method New(iterable:IIterable<T>, comparator:IEqualityComparator<T> = Null)
-		map = New THashMap<T,Int>(comparator)
+		Local collection:ICollection<T> = ICollection<T>(iterable)
+		Local initialCapacity:Int
+		If collection Then initialCapacity = collection.Count()
+		map = New THashMap<T,Byte>(initialCapacity, comparator)
 		If iterable Then
 			For Local element:T = EachIn iterable
 				Add(element)
@@ -84,11 +89,7 @@ Public
 	bbdoc: Copies the elements of the set to an array, starting at the specified array index.
 	End Rem
 	Method CopyTo(array:T[], index:Int = 0) Override
-		Local i:Int = index
-		For Local node:IMapNode<T,Int> = EachIn map
-			array[i] = node.GetKey()
-			i :+ 1
-		Next
+		map.Keys().CopyTo(array, index)
 	End Method
 
 	Rem
@@ -122,7 +123,7 @@ Public
 	returns: #True if the element was added; #False if it was already present.
 	End Rem
 	Method Add:Int(element:T) Override
-		Return map.TryAdd(element, 1)
+		Return map.TryAdd(element, Byte(1))
 	End Method
 
 	Rem
@@ -433,11 +434,7 @@ Public
 	End Rem
 	Method ToArray:T[]()
 		Local arr:T[Count()]
-		Local i:Int
-		For Local element:T = EachIn Self
-			arr[i] = element
-			i :+ 1
-		Next
+		CopyTo(arr)
 		Return arr
 	End Method
 
@@ -449,8 +446,7 @@ End Rem
 Type THashSetIterator<T> Implements IIterator<T>
 
 Private
-	Field map:THashMap<T,Int>
-	Field inner:IIterator<IMapNode<T,Int>>
+	Field inner:IIterator<T>
 	Field currentElement:T
 
 Public
@@ -458,9 +454,8 @@ Public
 	Rem
 	bbdoc: Creates a new iterator for the given map.
 	End Rem
-	Method New(map:THashMap<T,Int>)
-		Self.map = map
-		inner = map.GetIterator()
+	Method New(map:THashMap<T,Byte>)
+		inner = map.Keys().GetIterator()
 	End Method
 
 	Rem
@@ -476,8 +471,7 @@ Public
 	End Rem
 	Method MoveNext:Int()
 		If inner.MoveNext() Then
-			Local node:IMapNode<T,Int> = inner.Current()
-			currentElement = node.GetKey()
+			currentElement = inner.Current()
 			Return True
 		End If
 		Local def:T
