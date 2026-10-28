@@ -52,6 +52,36 @@ Type TObjectList
 	Method IsEmpty:Int()
 		Return size = 0
 	End Method
+
+	Rem
+	bbdoc: Inserts an object at the given index
+	about: Insert an object at the given index, if the index is bigger
+	       then the array, it is put at the end of it
+	End Rem
+	Method Insert:Int(value:Object, index:Int)
+		Assert value Else "Can't insert Null object into list"
+		Compact()
+
+		_ensureCapacity(size + 1)
+
+		' Compact() refreshed "size" already, size = "index + 1"
+		If index > size
+			index = size
+		Else
+			'clamp index
+			If index < 0 Then index = 0
+
+			'move entries
+			ArrayCopy(data, index, data, index + 1, size - index)
+		EndIf
+
+		data[index] = value
+		size :+ 1
+		version :+ 1
+
+		Return True
+	End Method
+
 	
 	Rem
 	bbdoc: Adds an object to the start of the list
