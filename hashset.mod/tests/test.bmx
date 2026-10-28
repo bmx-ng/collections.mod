@@ -70,6 +70,46 @@ Type THashSetTest Extends TTest
         AssertTrue(Not s.Contains("a"), "No elements after Clear")
     End Method
 
+	Method TestClearTrimAndRefill() { test }
+		Local s:THashSet<Int> = New THashSet<Int>
+		For Local i:Int = 0 Until 200
+			s.Add(i)
+		Next
+		s.Clear()
+		s.TrimExcess()
+		AssertTrue(s.IsEmpty(), "TrimExcess preserves an empty set")
+
+		For Local i:Int = 1000 Until 1200
+			AssertTrue(s.Add(i), "Refill after TrimExcess adds a new value")
+		Next
+		AssertEquals(200, s.Count(), "Refill after TrimExcess has the expected count")
+		For Local i:Int = 1000 Until 1200
+			AssertTrue(s.Contains(i), "Refilled set contains value: " + i)
+		Next
+	End Method
+
+	Method TestAddHashesOnceAndDuplicateDoesNotInvalidateIterator() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local s:THashSet<Int> = New THashSet<Int>(comparator)
+		AssertTrue(s.Add(1), "First Add inserts the value")
+		AssertEquals(1, comparator.calls, "Successful HashSet.Add calculates the hash once")
+		s.Add(2)
+
+		Local iterator:IIterator<Int> = s.GetIterator()
+		AssertTrue(iterator.MoveNext(), "Iterator starts before duplicate Add")
+		comparator.calls = 0
+		AssertTrue(Not s.Add(1), "Duplicate Add returns False")
+		AssertEquals(1, comparator.calls, "Duplicate HashSet.Add calculates the hash once")
+
+		Local threw:Int
+		Try
+			iterator.MoveNext()
+		Catch e:TInvalidOperationException
+			threw = True
+		End Try
+		AssertTrue(Not threw, "Duplicate Add does not invalidate an iterator")
+	End Method
+
     Method TestUnionIntersectionSymmetricDifference() { test }
         Local a:THashSet<Int> = New THashSet<Int>
         Local b:THashSet<Int> = New THashSet<Int>
@@ -362,4 +402,17 @@ Type TCollKeyClusteredComparator Implements IEqualityComparator<TCollKeyClustere
     Method HashCode:UInt(value:TCollKeyClustered)
         Return value.HashCode()
     End Method
+End Type
+
+Type TCountingIntComparator Implements IEqualityComparator<Int>
+	Field calls:Int
+
+	Method Equals:Int(a:Int, b:Int)
+		Return a = b
+	End Method
+
+	Method HashCode:UInt(value:Int)
+		calls :+ 1
+		Return UInt(value)
+	End Method
 End Type

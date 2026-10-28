@@ -291,6 +291,15 @@ Type THashMapTest Extends TTest
         Catch e:TArgumentException
         End Try
         AssertEquals(1, comparator.calls, "Duplicate Add calculates the key hash once")
+
+		comparator.calls = 0
+		AssertTrue(m.TryAdd(3, 30), "TryAdd inserts a missing key")
+		AssertEquals(1, comparator.calls, "Successful TryAdd calculates the key hash once")
+
+		comparator.calls = 0
+		AssertTrue(Not m.TryAdd(3, 40), "TryAdd rejects an existing key")
+		AssertEquals(1, comparator.calls, "Rejected TryAdd calculates the key hash once")
+		AssertEquals(30, m[3], "Rejected TryAdd preserves the existing value")
     End Method
 
     Method TestClearAndTrimInvalidateIterators() { test }

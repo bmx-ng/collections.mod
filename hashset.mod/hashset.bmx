@@ -105,6 +105,14 @@ Public
 		map.Clear()
 	End Method
 
+	Rem
+	bbdoc: Reduces the allocated storage to the smallest capacity suitable for the current elements.
+	about: Trimming an empty set releases all table storage.
+	End Rem
+	Method TrimExcess()
+		map.TrimExcess()
+	End Method
+
 	' ------------------------------
 	' ISet<T> – basic operations
 	' ------------------------------
@@ -114,11 +122,7 @@ Public
 	returns: #True if the element was added; #False if it was already present.
 	End Rem
 	Method Add:Int(element:T) Override
-		If map.ContainsKey(element) Then
-			Return False
-		End If
-		map.Add(element, 1)
-		Return True
+		Return map.TryAdd(element, 1)
 	End Method
 
 	Rem

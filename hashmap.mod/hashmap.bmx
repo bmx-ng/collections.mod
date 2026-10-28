@@ -198,6 +198,19 @@ Type THashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Rem
+	bbdoc: Attempts to add a new key/value association.
+	param: The key to add.
+	param: The value to associate with the key.
+	returns: #True if the association was added; otherwise #False if the key already exists.
+	End Rem
+	Method TryAdd:Int(key:K, value:V)
+		Local hash:Int = GetHash(key)
+		If FindIndexWithHash(key, hash) >= 0 Then Return False
+		InsertNew(key, value, hash)
+		Return True
+	End Method
+
+	Rem
 	bbdoc: Adds or replaces a key/value association.
 	param: The key to add or update.
 	param: The value to associate with the key.
