@@ -210,6 +210,274 @@ Type TLinkedHashMapTest Extends TTest
 		AssertEquals(0, saw, "No iteration after Clear")
 	End Method
 
+	Method TestClearRefillAndTrimPreserveOrder() { test }
+		Local m:TLinkedHashMap<Int,String> = New TLinkedHashMap<Int,String>(256)
+		For Local i:Int = 0 Until 200
+			m[i] = "old" + i
+		Next
+
+		m.Clear()
+		AssertEquals(0, m.Count(), "Clear removes all linked entries")
+		For Local i:Int = 0 Until 200
+			AssertTrue(Not m.ContainsKey(i), "Cleared key is absent: " + i)
+		Next
+
+		For Local i:Int = 0 Until 200
+			m[i + 1000] = "new" + i
+		Next
+		m.TrimExcess()
+
+		Local expectedKey:Int = 1000
+		For Local node:IMapNode<Int,String> = EachIn m
+			AssertEquals(expectedKey, node.GetKey(), "TrimExcess preserves insertion order")
+			AssertEquals("new" + (expectedKey - 1000), node.GetValue(), "TrimExcess preserves values")
+			expectedKey :+ 1
+		Next
+		AssertEquals(1200, expectedKey, "All refilled entries are iterated")
+
+		m.Clear()
+		m.TrimExcess()
+		m[7] = "seven"
+		AssertEquals("seven", m[7], "Map can be reused after empty TrimExcess")
+	End Method
+
+	Method TestNegativeInitialCapacityThrows() { test }
+		Local threw:Int
+		Try
+			Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(-1)
+		Catch e:TArgumentOutOfRangeException
+			threw = True
+		End Try
+		AssertTrue(threw, "Negative initial capacity throws TArgumentOutOfRangeException")
+	End Method
+
+	Method TestWrappedAndHighBitHashesPreserveOrder() { test }
+		Local wrapped:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(New TWrappedIntComparator)
+		For Local i:Int = 0 Until 6
+			wrapped[i] = i * 10
+		Next
+		AssertTrue(wrapped.Remove(0), "Remove first key from wrapped cluster")
+		AssertTrue(wrapped.Remove(3), "Remove middle key from wrapped cluster")
+		AssertTrue(wrapped.Remove(5), "Remove last key from wrapped cluster")
+		Local expected:Int[] = [1, 2, 4]
+		Local index:Int
+		For Local node:IMapNode<Int,Int> = EachIn wrapped
+			AssertEquals(expected[index], node.GetKey(), "Wrapped cluster retains insertion order")
+			AssertEquals(expected[index] * 10, node.GetValue(), "Wrapped cluster retains values")
+			index :+ 1
+		Next
+		AssertEquals(expected.Length, index, "Wrapped cluster iteration count")
+
+		Local high:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(New THighBitIntComparator)
+		For Local i:Int = 0 Until 1000
+			high[i] = i + 17
+		Next
+		For Local i:Int = 0 Until 1000 Step 3
+			AssertTrue(high.Remove(i), "Remove high-bit key: " + i)
+		Next
+		Local lastKey:Int = -1
+		For Local node:IMapNode<Int,Int> = EachIn high
+			AssertTrue(node.GetKey() > lastKey, "High-bit map retains relative insertion order")
+			AssertEquals(node.GetKey() + 17, node.GetValue(), "High-bit map retains value")
+			lastKey = node.GetKey()
+		Next
+	End Method
+
+	Method TestHashCalculatedOncePerOperation() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(comparator)
+
+		m[1] = 10
+		AssertEquals(1, comparator.calls, "Insert calculates the key hash once")
+
+		comparator.calls = 0
+		m[1] = 20
+		AssertEquals(1, comparator.calls, "Update calculates the key hash once")
+
+		comparator.calls = 0
+		Try
+			m.Add(1, 30)
+		Catch e:TArgumentException
+		End Try
+		AssertEquals(1, comparator.calls, "Duplicate Add calculates the key hash once")
+	End Method
+
+	Method TestResizeReusesCachedHashes() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(comparator)
+
+		' The seventh entry grows the initial eight-slot table. Existing keys
+		' must retain their hashes rather than being hashed again during resize.
+		For Local i:Int = 0 Until 7
+			m[i] = i
+		Next
+		AssertEquals(7, comparator.calls, "Resize calculates each inserted key hash exactly once")
+		For Local i:Int = 0 Until 7
+			AssertEquals(i, m[i], "Resized map retains value for key " + i)
+		Next
+	End Method
+
+	Method TestBoundedThresholdReplacementDoesNotResizeOrRehash() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(comparator, False, 102)
+		For Local i:Int = 0 Until 102
+			m[i] = i
+		Next
+
+		comparator.calls = 0
+		m[102] = 102
+		AssertEquals(1, comparator.calls, "Bounded replacement only hashes the inserted key")
+		AssertEquals(102, m.Count(), "Bounded replacement retains maxSize entries")
+		AssertTrue(Not m.ContainsKey(0), "Bounded threshold replacement evicts the oldest entry")
+		AssertTrue(m.ContainsKey(102), "Bounded threshold replacement retains the new entry")
+	End Method
+
+	Method TestBoundedCollisionChurnMaintainsEntryIndices() { test }
+		Const MAX_SIZE:Int = 64
+		Const INSERTIONS:Int = 2000
+		Local comparator:TCollKeyComparator = New TCollKeyComparator
+		Local m:TLinkedHashMap<TCollKey,String> = New TLinkedHashMap<TCollKey,String>(comparator, False, MAX_SIZE)
+
+		For Local i:Int = 0 Until INSERTIONS
+			m[New TCollKey(i)] = "v" + i
+		Next
+
+		AssertEquals(MAX_SIZE, m.Count(), "Collision-heavy bounded churn remains capped")
+		Local expected:Int = INSERTIONS - MAX_SIZE
+		For Local node:IMapNode<TCollKey,String> = EachIn m
+			AssertEquals(expected, node.GetKey().id, "Collision-heavy eviction preserves FIFO order")
+			AssertEquals("v" + expected, node.GetValue(), "Collision-heavy eviction preserves the matching value")
+			expected :+ 1
+		Next
+		AssertEquals(INSERTIONS, expected, "Collision-heavy bounded churn retains the newest entries")
+	End Method
+
+	Method TestTrimPreservesAccessOrder() { test }
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(1000, Null, True)
+		For Local i:Int = 0 Until 4
+			m[i] = i
+		Next
+		Local value:Int
+		m.TryGetValue(2, value)
+		m.TryGetValue(0, value)
+		m.TrimExcess()
+
+		Local expected:Int[] = [1, 3, 2, 0]
+		Local index:Int
+		For Local node:IMapNode<Int,Int> = EachIn m
+			AssertEquals(expected[index], node.GetKey(), "TrimExcess preserves access order")
+			index :+ 1
+		Next
+		AssertEquals(expected.Length, index, "Access-order iteration count after trim")
+	End Method
+
+	Method TestClearAndTrimInvalidateIterators() { test }
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(1000)
+		m[1] = 10
+		m[2] = 20
+		Local iterator:IIterator<IMapNode<Int,Int>> = m.GetIterator()
+		AssertTrue(iterator.MoveNext(), "Iterator starts before Clear")
+		m.Clear()
+		Local threw:Int
+		Try
+			iterator.MoveNext()
+		Catch e:TInvalidOperationException
+			threw = True
+		End Try
+		AssertTrue(threw, "Clear invalidates a LinkedHashMap iterator")
+
+		m[3] = 30
+		m[4] = 40
+		iterator = m.GetIterator()
+		AssertTrue(iterator.MoveNext(), "Iterator starts before TrimExcess")
+		m.TrimExcess()
+		threw = False
+		Try
+			iterator.MoveNext()
+		Catch e:TInvalidOperationException
+			threw = True
+		End Try
+		AssertTrue(threw, "A resizing TrimExcess invalidates a LinkedHashMap iterator")
+	End Method
+
+	Method TestRandomizedAgainstInsertionOrderReference() { test }
+		Const KEY_COUNT:Int = 129
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>
+		Local present:Int[KEY_COUNT]
+		Local values:Int[KEY_COUNT]
+		Local order:Int[]
+		Local seed:Int = 54321
+
+		For Local stepIndex:Int = 0 Until 20000
+			seed = (seed * 25173 + 13849) & $ffff
+			Local key:Int = seed Mod KEY_COUNT
+			Local operation:Int = (seed / 257) Mod 10
+
+			If operation < 4 Then
+				Local value:Int = seed + stepIndex
+				m[key] = value
+				If Not present[key] Then
+					order = order[..order.Length + 1]
+					order[order.Length - 1] = key
+				End If
+				present[key] = True
+				values[key] = value
+			Else If operation < 6 Then
+				Local removed:Int = m.Remove(key)
+				AssertEquals(present[key], removed, "Remove agrees with linked reference model")
+				If present[key] Then order = RemoveOrderedKey(order, key)
+				present[key] = False
+			Else If operation < 9 Then
+				Local value:Int = -1
+				Local found:Int = m.TryGetValue(key, value)
+				AssertEquals(present[key], found, "TryGetValue agrees with linked reference model")
+				If found Then AssertEquals(values[key], value, "TryGetValue returns linked reference value")
+			Else If (stepIndex Mod 97) = 0 Then
+				m.Clear()
+				present = New Int[KEY_COUNT]
+				values = New Int[KEY_COUNT]
+				order = New Int[0]
+			Else If (stepIndex Mod 53) = 0 Then
+				m.TrimExcess()
+			Else
+				AssertEquals(present[key], m.ContainsKey(key), "ContainsKey agrees with linked reference model")
+			End If
+
+			If (stepIndex Mod 101) = 0 Then AssertLinkedMapMatches(m, present, values, order)
+		Next
+
+		AssertLinkedMapMatches(m, present, values, order)
+	End Method
+
+	Method RemoveOrderedKey:Int[](order:Int[], key:Int)
+		Local result:Int[order.Length - 1]
+		Local outputIndex:Int
+		For Local item:Int = EachIn order
+			If item <> key Then
+				result[outputIndex] = item
+				outputIndex :+ 1
+			End If
+		Next
+		Return result
+	End Method
+
+	Method AssertLinkedMapMatches(m:TLinkedHashMap<Int,Int>, present:Int[], values:Int[], order:Int[])
+		AssertEquals(order.Length, m.Count(), "LinkedHashMap count agrees with reference")
+		For Local key:Int = 0 Until present.Length
+			AssertEquals(present[key], m.ContainsKey(key), "LinkedHashMap presence agrees with reference: " + key)
+		Next
+
+		Local index:Int
+		For Local node:IMapNode<Int,Int> = EachIn m
+			AssertTrue(index < order.Length, "LinkedHashMap does not iterate extra entries")
+			Local key:Int = order[index]
+			AssertEquals(key, node.GetKey(), "LinkedHashMap iteration order agrees with reference")
+			AssertEquals(values[key], node.GetValue(), "LinkedHashMap value agrees with reference")
+			index :+ 1
+		Next
+		AssertEquals(order.Length, index, "LinkedHashMap iterates every reference entry")
+	End Method
+
 	Method TestRemoveExistingAndMissingAndOrder() { test }
 		Local m:TLinkedHashMap<String,String> = New TLinkedHashMap<String,String>
 		m.Add("one","1")
@@ -623,4 +891,37 @@ Type TCollKeyClusteredComparator Implements IEqualityComparator<TCollKeyClustere
     Method HashCode:UInt(value:TCollKeyClustered)
         Return value.HashCode()
     End Method
+End Type
+
+Type TWrappedIntComparator Implements IEqualityComparator<Int>
+	Method Equals:Int(a:Int, b:Int)
+		Return a = b
+	End Method
+
+	Method HashCode:UInt(value:Int)
+		Return $7ffffffe
+	End Method
+End Type
+
+Type THighBitIntComparator Implements IEqualityComparator<Int>
+	Method Equals:Int(a:Int, b:Int)
+		Return a = b
+	End Method
+
+	Method HashCode:UInt(value:Int)
+		Return UInt(value) | $80000000
+	End Method
+End Type
+
+Type TCountingIntComparator Implements IEqualityComparator<Int>
+	Field calls:Int
+
+	Method Equals:Int(a:Int, b:Int)
+		Return a = b
+	End Method
+
+	Method HashCode:UInt(value:Int)
+		calls :+ 1
+		Return UInt(value)
+	End Method
 End Type

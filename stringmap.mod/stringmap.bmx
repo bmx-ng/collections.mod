@@ -83,7 +83,7 @@ Type TStringMap
 
 	Method Keys:TStringMapEnumerator()
 		Local nodeEnumerator:TStringKeyEnumerator = New TStringKeyEnumerator
-		nodeEnumerator._mapIterator = IIterator<IMapNode<String,Object>>(_map.GetIterator())
+		nodeEnumerator._keyIterator = _map.Keys().GetIterator()
 		Local mapEnumerator:TStringMapEnumerator = New TStringMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -91,7 +91,7 @@ Type TStringMap
 
 	Method Values:TStringMapEnumerator()
 		Local nodeEnumerator:TStringValueEnumerator = New TStringValueEnumerator
-		nodeEnumerator._mapIterator = IIterator<IMapNode<String,Object>>(_map.GetIterator())
+		nodeEnumerator._valueIterator = _map.Values().GetIterator()
 		Local mapEnumerator:TStringMapEnumerator = New TStringMapEnumerator
 		mapEnumerator._enumerator = nodeEnumerator
 		Return mapEnumerator
@@ -184,23 +184,47 @@ Type TStringNodeEnumerator
 End Type
 
 Type TStringKeyEnumerator Extends TStringNodeEnumerator
-	Method NextObject:Object() Override
-		Local kv:TStringKeyValue = TStringKeyValue(Super.NextObject())
-		If kv Then
-			Return kv._key
+	Method HasNext:Int() Override
+		If _keyReady Then Return True
+		If _keyIterator.MoveNext() Then
+			_keyReady = True
+			Return True
 		End If
-		Return Null
+		Return False
 	End Method
+
+	Method NextObject:Object() Override
+		If Not _keyReady Then
+			If Not _keyIterator.MoveNext() Then Return Null
+		End If
+		_keyReady = False
+		Return _keyIterator.Current()
+	End Method
+
+	Field _keyIterator:IIterator<String>
+	Field _keyReady:Int
 End Type
 
 Type TStringValueEnumerator Extends TStringNodeEnumerator
-	Method NextObject:Object() Override
-		Local kv:TStringKeyValue = TStringKeyValue(Super.NextObject())
-		If kv Then
-			Return kv._value
+	Method HasNext:Int() Override
+		If _valueReady Then Return True
+		If _valueIterator.MoveNext() Then
+			_valueReady = True
+			Return True
 		End If
-		Return Null
+		Return False
 	End Method
+
+	Method NextObject:Object() Override
+		If Not _valueReady Then
+			If Not _valueIterator.MoveNext() Then Return Null
+		End If
+		_valueReady = False
+		Return _valueIterator.Current()
+	End Method
+
+	Field _valueIterator:IIterator<Object>
+	Field _valueReady:Int
 End Type
 
 Type TStringMapEnumerator

@@ -7,6 +7,7 @@ Module Collections.LinkedHashMap
 
 Import Collections.IMap
 Import Collections.immutablelist
+Import Collections.Errors
 
 Rem
 bbdoc: A hash map that maintains insertion order or access order of its entries.
@@ -17,11 +18,17 @@ End Rem
 Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 	Internal
-	Const EMPTY:Int = -1
+	Const EMPTY:Int = 0
+	Const MIN_CAPACITY:Int = 8
+	Const LOAD_NUMERATOR:Int = 4
+	Const LOAD_DENOMINATOR:Int = 5
+	Const MAX_CAPACITY:Int = $40000000
 
 	Field _entries:TLinkedHashEntry<K,V>[]  ' table slots hold entry refs
 	Field _dibs:Int[]
 	Field _size:Int
+	Field _mask:Int
+	Field _resizeThreshold:Int
 	Field _version:Int
 	Field _comparator:IEqualityComparator<K>
 
@@ -58,6 +65,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 	If @maxSize is greater than 0, the map will either evict least-recently-used entries when the size exceeds maxSize, or if @accessOrder is #False (the default), evict oldest entries (FIFO).
 	End Rem
 	Method New(initialCapacity:Int, comparator:IEqualityComparator<K> = Null, accessOrder:Int = False, maxSize:Int = 0)
+		If initialCapacity < 0 Then Throw New TArgumentOutOfRangeException
 		_comparator = comparator
 		_accessOrder = accessOrder
 		_maxSize = maxSize
@@ -74,13 +82,48 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 		Return _size = 0
 	End Method
 
+	Rem
+	bbdoc: Removes all entries while retaining the allocated table capacity.
+	about: The linked entries are released. Call #TrimExcess after clearing to release the retained table storage.
+	End Rem
 	Method Clear()
-		_entries = Null
-		_dibs = Null
+		If _size Then
+			Local remaining:Int = _size
+			For Local index:Int = 0 Until _dibs.Length
+				If _dibs[index] <> EMPTY Then
+					_entries[index]._index = -1
+					_entries[index] = Null
+					_dibs[index] = EMPTY
+					remaining :- 1
+					If remaining = 0 Then Exit
+				End If
+			Next
+		End If
 		_size = 0
 		_head = Null
 		_tail = Null
 		_version :+ 1
+	End Method
+
+	Rem
+	bbdoc: Reduces the allocated storage to the smallest capacity suitable for the current entries.
+	about: Trimming an empty map releases all table storage. Entry order is preserved.
+	End Rem
+	Method TrimExcess()
+		If _size = 0 Then
+			_entries = Null
+			_dibs = Null
+			_mask = 0
+			_resizeThreshold = 0
+			_version :+ 1
+			Return
+		End If
+
+		Local targetCapacity:Int = CapacityForCount(_size)
+		If targetCapacity < _dibs.Length Then
+			Resize(targetCapacity)
+			_version :+ 1
+		End If
 	End Method
 
 	Method GetIterator:IIterator<IMapNode<K,V>>()
@@ -112,14 +155,16 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Method Add(key:K, value:V)
-		If FindIndex(key) >= 0 Then
+		Local hash:Int = GetHash(key)
+		If FindIndexWithHash(key, hash) >= 0 Then
 			Throw New TArgumentException("An element with the same key already exists in the map")
 		End If
-		InsertNew(key, value)
+		InsertNew(key, value, hash)
 	End Method
 
 	Method Put:V(key:K, value:V)
-		Local idx:Int = FindIndex(key)
+		Local hash:Int = GetHash(key)
+		Local idx:Int = FindIndexWithHash(key, hash)
 		If idx >= 0 Then
 			Local e:TLinkedHashEntry<K,V> = _entries[idx]
 			Local old:V = e._value
@@ -130,7 +175,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			Return old
 		End If
 
-		InsertNew(key, value)
+		InsertNew(key, value, hash)
 		Local def:V
 		Return def
 	End Method
@@ -173,7 +218,9 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 		End If
 
 		' unlink entry from list first
-		Unlink(_entries[idx])
+		Local entry:TLinkedHashEntry<K,V> = _entries[idx]
+		Unlink(entry)
+		entry._index = -1
 
 		RemoveAt(idx)
 		_version :+ 1
@@ -219,34 +266,38 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 		Return DefaultComparator_HashCode(key)
 	End Method
 
-	Method EnsureCapacity(minCount:Int)
-		Local cap:Int = 0
-		If _dibs Then
-			cap = _dibs.Length
-		End If
+	Method NextPowerOfTwo:Int(value:Long)
+		If value <= MIN_CAPACITY Then Return MIN_CAPACITY
+		If value > MAX_CAPACITY Then Throw New TArgumentOutOfRangeException
 
-		If cap = 0 Then
-			Local newCap:Int = 8
-			While newCap < minCount * 2
-				newCap :* 2
-			Wend
-			Resize(newCap)
+		Local capacity:Int = MIN_CAPACITY
+		While Long(capacity) < value
+			capacity :* 2
+		Wend
+		Return capacity
+	End Method
+
+	Method CapacityForCount:Int(count:Int)
+		If count <= 0 Then Return 0
+		Local required:Long = (Long(count) * LOAD_DENOMINATOR + LOAD_NUMERATOR - 1) / LOAD_NUMERATOR
+		Return NextPowerOfTwo(required)
+	End Method
+
+	Method EnsureCapacity(minCount:Int)
+		If minCount <= _resizeThreshold Then Return
+		If _dibs = Null Then
+			Resize(CapacityForCount(minCount))
 		Else
-			If Float(minCount) / Float(cap) > 0.8 Then
-				Resize(cap * 2)
-			End If
+			If _dibs.Length >= MAX_CAPACITY Then Throw New TArgumentOutOfRangeException
+			Resize(_dibs.Length * 2)
 		End If
 	End Method
 
 	Method Resize(newCapacity:Int)
-		Local oldEntries:TLinkedHashEntry<K,V>[] = _entries
-		Local oldDibs:Int[] = _dibs
-
 		_entries = New TLinkedHashEntry<K,V>[newCapacity]
 		_dibs = New Int[newCapacity]
-		For Local i:Int = 0 Until newCapacity
-			_dibs[i] = EMPTY
-		Next
+		_mask = newCapacity - 1
+		_resizeThreshold = Int((Long(newCapacity) * LOAD_NUMERATOR) / LOAD_DENOMINATOR)
 
 		' Rebuild the table by walking insertion order.
 		_size = 0
@@ -255,23 +306,17 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			InsertEntryNoResize(n)
 			n = n._next
 		Wend
-
-		_version :+ 1
 	End Method
 
 	Method FindIndex:Int(key:K)
-		If _dibs = Null Then
-			Return -1
-		End If
+		If _dibs = Null Then Return -1
+		Return FindIndexWithHash(key, GetHash(key))
+	End Method
 
-		Local cap:Int = _dibs.Length
-		If cap = 0 Then
-			Return -1
-		End If
-
-		Local hash:Int = GetHash(key) & $7fffffff
-		Local idx:Int = hash Mod cap
-		Local dib:Int = 0
+	Method FindIndexWithHash:Int(key:K, hash:Int)
+		If _dibs = Null Then Return -1
+		Local idx:Int = hash & _mask
+		Local dib:Int = 1
 
 		While True
 			Local slotDib:Int = _dibs[idx]
@@ -283,11 +328,11 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			End If
 
 			Local e:TLinkedHashEntry<K,V> = _entries[idx]
-			If e And KeysEqual(e._key, key) Then
+			If e And e._hash = hash And KeysEqual(e._key, key) Then
 				Return idx
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dib :+ 1
 		Wend
 	End Method
@@ -323,30 +368,35 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 		e._next = Null
 	End Method
 
-	Method InsertNew(key:K, value:V)
-		EnsureCapacity(_size + 1)
+	Method InsertNew(key:K, value:V, hash:Int)
+		' A bounded map immediately evicts after inserting at maxSize. Do not
+		' resize merely to accommodate that temporary one-entry overflow.
+		Local requiredCount:Int = _size + 1
+		If _maxSize > 0 And _size >= _maxSize Then
+			requiredCount = _size
+		End If
+		EnsureCapacity(requiredCount)
 		Local e:TLinkedHashEntry<K,V> = New TLinkedHashEntry<K,V>
 		e._key = key
 		e._value = value
-		e._map = Self
+		e._hash = hash
 		LinkLast(e)
-		InsertEntryNoResize(e)
+		InsertEntryNoResize(e, hash)
 		_version :+ 1
 
 		EvictIfNeeded()
 	End Method
 
-	Method InsertEntryNoResize(e:TLinkedHashEntry<K,V>)
-		Local cap:Int = _dibs.Length
-		Local hash:Int = GetHash(e._key) & $7fffffff
-		Local idx:Int = hash Mod cap
-		Local dibVal:Int = 0
+	Method InsertEntryNoResize(e:TLinkedHashEntry<K,V>, hash:Int)
+		Local idx:Int = hash & _mask
+		Local dibVal:Int = 1
 
 		While True
 			Local slotDib:Int = _dibs[idx]
 			If slotDib = EMPTY Then
 				_entries[idx] = e
 				_dibs[idx] = dibVal
+				e._index = idx
 				_size :+ 1
 				Return
 			End If
@@ -358,24 +408,41 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 				_entries[idx] = e
 				_dibs[idx] = dibVal
+				e._index = idx
 
 				e = tmpE
 				dibVal = tmpDib
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dibVal :+ 1
 		Wend
 	End Method
 
+	Method InsertEntryNoResize(e:TLinkedHashEntry<K,V>)
+		InsertEntryNoResize(e, e._hash)
+	End Method
+
+	Method RemoveEntry:Int(entry:TLinkedHashEntry<K,V>)
+		If entry = Null Then Return False
+
+		Local idx:Int = entry._index
+		If idx < 0 Or _entries = Null Or idx >= _entries.Length Or _entries[idx] <> entry Then Return False
+
+		Unlink(entry)
+		entry._index = -1
+		RemoveAt(idx)
+		_version :+ 1
+		Return True
+	End Method
+
 	Method RemoveAt(index:Int)
-		Local cap:Int = _dibs.Length
 		Local i:Int = index
 
 		While True
-			Local j:Int = (i + 1) Mod cap
+			Local j:Int = (i + 1) & _mask
 
-			If _dibs[j] = EMPTY Or _dibs[j] = 0 Then
+			If _dibs[j] = EMPTY Or _dibs[j] = 1 Then
 				_dibs[i] = EMPTY
 				_entries[i] = Null
 				Exit
@@ -383,6 +450,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 			_entries[i] = _entries[j]
 			_dibs[i] = _dibs[j] - 1
+			_entries[i]._index = i
 
 			i = j
 		Wend
@@ -415,8 +483,8 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 		' Evict LRU entries from the head until size <= maxSize
 		While _size > _maxSize And _head
-			Local k:K = _head._key
-			Remove(k)
+			Local entry:TLinkedHashEntry<K,V> = _head
+			If Not RemoveEntry(entry) And Not Remove(entry._key) Then Exit
 		Wend
 	End Method
 
@@ -425,13 +493,12 @@ End Type
 Type TLinkedHashEntry<K,V> Implements IMapNode<K,V>
 	Field _key:K
 	Field _value:V
+	Field _hash:Int
+	Field _index:Int = -1
 
 	' doubly-linked insertion order
 	Field _prev:TLinkedHashEntry<K,V>
 	Field _next:TLinkedHashEntry<K,V>
-
-	' owning map (optional, only needed for version/validation if you want)
-	Field _map:TLinkedHashMap<K,V>
 
 	Method GetKey:K()
 		Return _key
