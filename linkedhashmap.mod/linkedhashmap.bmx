@@ -91,6 +91,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			Local remaining:Int = _size
 			For Local index:Int = 0 Until _dibs.Length
 				If _dibs[index] <> EMPTY Then
+					_entries[index]._index = -1
 					_entries[index] = Null
 					_dibs[index] = EMPTY
 					remaining :- 1
@@ -217,7 +218,9 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 		End If
 
 		' unlink entry from list first
-		Unlink(_entries[idx])
+		Local entry:TLinkedHashEntry<K,V> = _entries[idx]
+		Unlink(entry)
+		entry._index = -1
 
 		RemoveAt(idx)
 		_version :+ 1
@@ -325,7 +328,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			End If
 
 			Local e:TLinkedHashEntry<K,V> = _entries[idx]
-			If e And KeysEqual(e._key, key) Then
+			If e And e._hash = hash And KeysEqual(e._key, key) Then
 				Return idx
 			End If
 
@@ -366,11 +369,17 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Method InsertNew(key:K, value:V, hash:Int)
-		EnsureCapacity(_size + 1)
+		' A bounded map immediately evicts after inserting at maxSize. Do not
+		' resize merely to accommodate that temporary one-entry overflow.
+		Local requiredCount:Int = _size + 1
+		If _maxSize > 0 And _size >= _maxSize Then
+			requiredCount = _size
+		End If
+		EnsureCapacity(requiredCount)
 		Local e:TLinkedHashEntry<K,V> = New TLinkedHashEntry<K,V>
 		e._key = key
 		e._value = value
-		e._map = Self
+		e._hash = hash
 		LinkLast(e)
 		InsertEntryNoResize(e, hash)
 		_version :+ 1
@@ -387,6 +396,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 			If slotDib = EMPTY Then
 				_entries[idx] = e
 				_dibs[idx] = dibVal
+				e._index = idx
 				_size :+ 1
 				Return
 			End If
@@ -398,6 +408,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 				_entries[idx] = e
 				_dibs[idx] = dibVal
+				e._index = idx
 
 				e = tmpE
 				dibVal = tmpDib
@@ -409,7 +420,20 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Method InsertEntryNoResize(e:TLinkedHashEntry<K,V>)
-		InsertEntryNoResize(e, GetHash(e._key))
+		InsertEntryNoResize(e, e._hash)
+	End Method
+
+	Method RemoveEntry:Int(entry:TLinkedHashEntry<K,V>)
+		If entry = Null Then Return False
+
+		Local idx:Int = entry._index
+		If idx < 0 Or _entries = Null Or idx >= _entries.Length Or _entries[idx] <> entry Then Return False
+
+		Unlink(entry)
+		entry._index = -1
+		RemoveAt(idx)
+		_version :+ 1
+		Return True
 	End Method
 
 	Method RemoveAt(index:Int)
@@ -426,6 +450,7 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 			_entries[i] = _entries[j]
 			_dibs[i] = _dibs[j] - 1
+			_entries[i]._index = i
 
 			i = j
 		Wend
@@ -458,8 +483,8 @@ Type TLinkedHashMap<K, V> Implements IMap<K, V>
 
 		' Evict LRU entries from the head until size <= maxSize
 		While _size > _maxSize And _head
-			Local k:K = _head._key
-			Remove(k)
+			Local entry:TLinkedHashEntry<K,V> = _head
+			If Not RemoveEntry(entry) And Not Remove(entry._key) Then Exit
 		Wend
 	End Method
 
@@ -468,13 +493,12 @@ End Type
 Type TLinkedHashEntry<K,V> Implements IMapNode<K,V>
 	Field _key:K
 	Field _value:V
+	Field _hash:Int
+	Field _index:Int = -1
 
 	' doubly-linked insertion order
 	Field _prev:TLinkedHashEntry<K,V>
 	Field _next:TLinkedHashEntry<K,V>
-
-	' owning map (optional, only needed for version/validation if you want)
-	Field _map:TLinkedHashMap<K,V>
 
 	Method GetKey:K()
 		Return _key

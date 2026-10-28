@@ -302,6 +302,56 @@ Type TLinkedHashMapTest Extends TTest
 		AssertEquals(1, comparator.calls, "Duplicate Add calculates the key hash once")
 	End Method
 
+	Method TestResizeReusesCachedHashes() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(comparator)
+
+		' The seventh entry grows the initial eight-slot table. Existing keys
+		' must retain their hashes rather than being hashed again during resize.
+		For Local i:Int = 0 Until 7
+			m[i] = i
+		Next
+		AssertEquals(7, comparator.calls, "Resize calculates each inserted key hash exactly once")
+		For Local i:Int = 0 Until 7
+			AssertEquals(i, m[i], "Resized map retains value for key " + i)
+		Next
+	End Method
+
+	Method TestBoundedThresholdReplacementDoesNotResizeOrRehash() { test }
+		Local comparator:TCountingIntComparator = New TCountingIntComparator
+		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(comparator, False, 102)
+		For Local i:Int = 0 Until 102
+			m[i] = i
+		Next
+
+		comparator.calls = 0
+		m[102] = 102
+		AssertEquals(1, comparator.calls, "Bounded replacement only hashes the inserted key")
+		AssertEquals(102, m.Count(), "Bounded replacement retains maxSize entries")
+		AssertTrue(Not m.ContainsKey(0), "Bounded threshold replacement evicts the oldest entry")
+		AssertTrue(m.ContainsKey(102), "Bounded threshold replacement retains the new entry")
+	End Method
+
+	Method TestBoundedCollisionChurnMaintainsEntryIndices() { test }
+		Const MAX_SIZE:Int = 64
+		Const INSERTIONS:Int = 2000
+		Local comparator:TCollKeyComparator = New TCollKeyComparator
+		Local m:TLinkedHashMap<TCollKey,String> = New TLinkedHashMap<TCollKey,String>(comparator, False, MAX_SIZE)
+
+		For Local i:Int = 0 Until INSERTIONS
+			m[New TCollKey(i)] = "v" + i
+		Next
+
+		AssertEquals(MAX_SIZE, m.Count(), "Collision-heavy bounded churn remains capped")
+		Local expected:Int = INSERTIONS - MAX_SIZE
+		For Local node:IMapNode<TCollKey,String> = EachIn m
+			AssertEquals(expected, node.GetKey().id, "Collision-heavy eviction preserves FIFO order")
+			AssertEquals("v" + expected, node.GetValue(), "Collision-heavy eviction preserves the matching value")
+			expected :+ 1
+		Next
+		AssertEquals(INSERTIONS, expected, "Collision-heavy bounded churn retains the newest entries")
+	End Method
+
 	Method TestTrimPreservesAccessOrder() { test }
 		Local m:TLinkedHashMap<Int,Int> = New TLinkedHashMap<Int,Int>(1000, Null, True)
 		For Local i:Int = 0 Until 4
