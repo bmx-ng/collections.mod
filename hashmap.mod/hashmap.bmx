@@ -23,12 +23,18 @@ End Rem
 Type THashMap<K, V> Implements IMap<K, V>
 
 	Internal
-	Const EMPTY:Int = -1
+	Const EMPTY:Int = 0
+	Const MIN_CAPACITY:Int = 8
+	Const LOAD_NUMERATOR:Int = 4
+	Const LOAD_DENOMINATOR:Int = 5
+	Const MAX_CAPACITY:Int = $40000000
 
 	Field _keys:K[]
 	Field _values:V[]
-	Field _dibs:Int[]      ' -1 = empty, >=0 distance from home
+	Field _dibs:Int[]      ' 0 = empty, >=1 = distance from home plus one
 	Field _size:Int
+	Field _mask:Int
+	Field _resizeThreshold:Int
 	Field _version:Int
 	Field _comparator:IEqualityComparator<K>
 	
@@ -54,6 +60,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 	param: An optional equality comparator for the keys. When #Null the default equality and hash functions for type K are used.
 	End Rem
 	Method New(initialCapacity:Int, comparator:IEqualityComparator<K> = Null)
+		If initialCapacity < 0 Then Throw New TArgumentOutOfRangeException
 		_comparator = comparator
 		If initialCapacity > 0 Then
 			EnsureCapacity(initialCapacity)
@@ -76,14 +83,48 @@ Type THashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	Rem
-	bbdoc: Removes all elements from the #THashMap.
+	bbdoc: Removes all elements from the #THashMap while retaining its allocated capacity.
+	about: Call #TrimExcess after clearing to release the retained storage.
 	End Rem
 	Method Clear()
-		_keys = Null
-		_values = Null
-		_dibs = Null
+		If _size Then
+			Local defaultKey:K
+			Local defaultValue:V
+			Local remaining:Int = _size
+			For Local index:Int = 0 Until _dibs.Length
+				If _dibs[index] <> EMPTY Then
+					_keys[index] = defaultKey
+					_values[index] = defaultValue
+					_dibs[index] = EMPTY
+					remaining :- 1
+					If remaining = 0 Then Exit
+				End If
+			Next
+		End If
 		_size = 0
 		_version :+ 1
+	End Method
+
+	Rem
+	bbdoc: Reduces the allocated storage to the smallest capacity suitable for the current entries.
+	about: Trimming an empty map releases all table storage. Existing entries and their values are preserved.
+	End Rem
+	Method TrimExcess()
+		If _size = 0 Then
+			_keys = Null
+			_values = Null
+			_dibs = Null
+			_mask = 0
+			_resizeThreshold = 0
+			_version :+ 1
+			Return
+		End If
+
+		Local targetCapacity:Int = CapacityForCount(_size)
+		If targetCapacity < _dibs.Length Then
+			Resize(targetCapacity)
+			_version :+ 1
+		End If
 	End Method
 
 	Rem
@@ -96,7 +137,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 		Local cap:Int = _dibs.Length
 		Local iOut:Int = index
 		For Local i:Int = 0 Until cap
-			If _dibs[i] >= 0 Then
+			If _dibs[i] <> EMPTY Then
 				array[iOut] = New THashMapNode<K,V>(Self, i)
 				iOut :+ 1
 			End If
@@ -148,11 +189,12 @@ Type THashMap<K, V> Implements IMap<K, V>
 	be replaced.
 	End Rem
 	Method Add(key:K, value:V)
-		Local idx:Int = FindIndex(key)
+		Local hash:Int = GetHash(key)
+		Local idx:Int = FindIndexWithHash(key, hash)
 		If idx >= 0 Then
 			Throw New TArgumentException("An element with the same key already exists in the hash map")
 		End If
-		InsertNew(key, value)
+		InsertNew(key, value, hash)
 	End Method
 
 	Rem
@@ -164,7 +206,8 @@ Type THashMap<K, V> Implements IMap<K, V>
 	existing value associated with the key is replaced.
 	End Rem
 	Method Put:V(key:K, value:V)
-		Local idx:Int = FindIndex(key)
+		Local hash:Int = GetHash(key)
+		Local idx:Int = FindIndexWithHash(key, hash)
 		If idx >= 0 Then
 			Local old:V = _values[idx]
 			_values[idx] = value
@@ -172,7 +215,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 			Return old
 		End If
 
-		InsertNew(key, value)
+		InsertNew(key, value, hash)
 
 		Local def:V
 		Return def
@@ -243,12 +286,13 @@ Type THashMap<K, V> Implements IMap<K, V>
 	not returned.
 	End Rem
 	Method Operator []= (key:K, value:V)
-		Local idx:Int = FindIndex(key)
+		Local hash:Int = GetHash(key)
+		Local idx:Int = FindIndexWithHash(key, hash)
 		If idx >= 0 Then
 			_values[idx] = value
 			_version :+ 1
 		Else
-			InsertNew(key, value)
+			InsertNew(key, value, hash)
 		End If
 	End Method
 
@@ -261,7 +305,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 		If _dibs = Null Then Return False
 
 		For Local i:Int = 0 Until _dibs.Length
-			If _dibs[i] >= 0 Then
+			If _dibs[i] <> EMPTY Then
 				If _values[i] = value Then
 					Return True
 				End If
@@ -273,27 +317,30 @@ Type THashMap<K, V> Implements IMap<K, V>
 
 	Private
 
-	Method EnsureCapacity(minCount:Int)
-		Local cap:Int
-		If _dibs <> Null Then
-			cap = _dibs.Length
-		Else
-			cap = 0
-		End If
+	Method NextPowerOfTwo:Int(value:Long)
+		If value <= MIN_CAPACITY Then Return MIN_CAPACITY
+		If value > MAX_CAPACITY Then Throw New TArgumentOutOfRangeException
 
-		If cap = 0 Then
-			' Start with at least 8 slots
-			Local newCap:Int = 8
-			While newCap < minCount * 2
-				newCap :* 2
-			Wend
-			Resize(newCap)
+		Local capacity:Int = MIN_CAPACITY
+		While Long(capacity) < value
+			capacity :* 2
+		Wend
+		Return capacity
+	End Method
+
+	Method CapacityForCount:Int(count:Int)
+		If count <= 0 Then Return 0
+		Local required:Long = (Long(count) * LOAD_DENOMINATOR + LOAD_NUMERATOR - 1) / LOAD_NUMERATOR
+		Return NextPowerOfTwo(required)
+	End Method
+
+	Method EnsureCapacity(minCount:Int)
+		If minCount <= _resizeThreshold Then Return
+		If _dibs = Null Then
+			Resize(CapacityForCount(minCount))
 		Else
-			' Resize when load factor exceeds ~0.8
-			If Float(minCount) / Float(cap) > 0.8 Then
-				Local newCap:Int = cap * 2
-				Resize(newCap)
-			End If
+			If _dibs.Length >= MAX_CAPACITY Then Throw New TArgumentOutOfRangeException
+			Resize(_dibs.Length * 2)
 		End If
 	End Method
 
@@ -305,21 +352,18 @@ Type THashMap<K, V> Implements IMap<K, V>
 		_keys = New K[newCapacity]
 		_values = New V[newCapacity]
 		_dibs = New Int[newCapacity]
-		For Local i:Int = 0 Until newCapacity
-			_dibs[i] = EMPTY
-		Next
+		_mask = newCapacity - 1
+		_resizeThreshold = Int((Long(newCapacity) * LOAD_NUMERATOR) / LOAD_DENOMINATOR)
 
 		_size = 0
 
 		If oldDibs Then
 			For Local i:Int = 0 Until oldDibs.Length
-				If oldDibs[i] >= 0 Then
+				If oldDibs[i] <> EMPTY Then
 					InsertNewNoResize(oldKeys[i], oldValues[i])
 				End If
 			Next
 		End If
-
-		_version :+ 1
 	End Method
 
 	Method KeysEqual:Int(a:K, b:K)
@@ -343,13 +387,13 @@ Type THashMap<K, V> Implements IMap<K, V>
 	' Robin Hood lookup
 	Method FindIndex:Int(key:K)
 		If _dibs = Null Then Return -1
+		Return FindIndexWithHash(key, GetHash(key))
+	End Method
 
-		Local cap:Int = _dibs.Length
-		If cap = 0 Then Return -1
-
-		Local hash:Int = GetHash(key) & $7fffffff
-		Local idx:Int = hash Mod cap
-		Local dib:Int = 0
+	Method FindIndexWithHash:Int(key:K, hash:Int)
+		If _dibs = Null Then Return -1
+		Local idx:Int = hash & _mask
+		Local dib:Int = 1
 
 		While True
 			Local slotDib:Int = _dibs[idx]
@@ -369,7 +413,7 @@ Type THashMap<K, V> Implements IMap<K, V>
 				Return idx
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dib :+ 1
 		Wend
 
@@ -377,17 +421,20 @@ Type THashMap<K, V> Implements IMap<K, V>
 	End Method
 
 	' Public insert for new key
-	Method InsertNew(key:K, value:V)
+	Method InsertNew(key:K, value:V, hash:Int)
 		EnsureCapacity(_size + 1)
-		InsertNewNoResize(key, value)
+		InsertNewNoResize(key, value, hash)
+		_version :+ 1
+	End Method
+
+	Method InsertNew(key:K, value:V)
+		InsertNew(key, value, GetHash(key))
 	End Method
 
 	' Core Robin Hood insertion, assumes table has space
-	Method InsertNewNoResize(key:K, value:V)
-		Local cap:Int = _dibs.Length
-		Local hash:Int = GetHash(key) & $7fffffff
-		Local idx:Int = hash Mod cap
-		Local dibVal:Int = 0
+	Method InsertNewNoResize(key:K, value:V, hash:Int)
+		Local idx:Int = hash & _mask
+		Local dibVal:Int = 1
 
 		While True
 			Local slotDib:Int = _dibs[idx]
@@ -397,7 +444,6 @@ Type THashMap<K, V> Implements IMap<K, V>
 				_values[idx] = value
 				_dibs[idx] = dibVal
 				_size :+ 1
-				_version :+ 1
 				Return
 			End If
 
@@ -417,20 +463,22 @@ Type THashMap<K, V> Implements IMap<K, V>
 				dibVal = tmpDib
 			End If
 
-			idx = (idx + 1) Mod cap
+			idx = (idx + 1) & _mask
 			dibVal :+ 1
 		Wend
 	End Method
 
+	Method InsertNewNoResize(key:K, value:V)
+		InsertNewNoResize(key, value, GetHash(key))
+	End Method
+
 	' Backwards-shift deletion
 	Method RemoveAt(index:Int)
-		Local cap:Int = _dibs.Length
-
 		Local i:Int = index
 		While True
-			Local j:Int = (i + 1) Mod cap
+			Local j:Int = (i + 1) & _mask
 
-			If _dibs[j] = EMPTY Or _dibs[j] = 0 Then
+			If _dibs[j] = EMPTY Or _dibs[j] = 1 Then
 				' j is empty or its occupant is at home; just clear i and stop
 				_dibs[i] = EMPTY
 
@@ -514,7 +562,7 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 		Local cap:Int = map._dibs.Length
 		Local i:Int = index + 1
 		While i < cap
-			If map._dibs[i] >= 0 Then
+			If map._dibs[i] <> 0 Then
 				Return True
 			End If
 			i :+ 1
@@ -531,7 +579,7 @@ Type THashMapNode<K, V> Implements IMapNode<K, V>
 		Local cap:Int = map._dibs.Length
 		Local i:Int = index + 1
 		While i < cap
-			If map._dibs[i] >= 0 Then
+			If map._dibs[i] <> 0 Then
 				Return New THashMapNode<K,V>(map, i)
 			End If
 			i :+ 1
@@ -593,7 +641,7 @@ Type THashMapIterator<K, V> Implements IIterator<IMapNode<K,V>>
 		Local cap:Int = map._dibs.Length
 		idx :+ 1
 		While idx < cap
-			If map._dibs[idx] >= 0 Then
+			If map._dibs[idx] <> 0 Then
 				currentNode = New THashMapNode<K,V>(map, idx)
 				Return True
 			End If
@@ -653,7 +701,7 @@ Type THashMapKeysView<K,V> Implements ICollection<K>
 		Local i:Int = index
 		If _map._dibs Then
 			For Local p:Int = 0 Until _map._dibs.Length
-				If _map._dibs[p] >= 0 Then
+				If _map._dibs[p] <> 0 Then
 					array[i] = _map._keys[p]
 					i :+ 1
 				End If
@@ -721,7 +769,7 @@ Type THashMapKeysIterator<K,V> Implements IIterator<K>
 				_current = def
 				Return False
 			End If
-		Until _map._dibs[_idx] >= 0
+		Until _map._dibs[_idx] <> 0
 
 		_current = _map._keys[_idx]
 		Return True
@@ -776,7 +824,7 @@ Type THashMapValuesView<K,V> Implements ICollection<V>
 		Local i:Int = index
 		If _map._dibs Then
 			For Local p:Int = 0 Until _map._dibs.Length
-				If _map._dibs[p] >= 0 Then
+				If _map._dibs[p] <> 0 Then
 					array[i] = _map._values[p]
 					i :+ 1
 				End If
@@ -847,7 +895,7 @@ Type THashMapValuesIterator<K,V> Implements IIterator<V>
 				_current = def2
 				Return False
 			End If
-		Until _map._dibs[_idx] >= 0
+		Until _map._dibs[_idx] <> 0
 
 		_current = _map._values[_idx]
 		Return True

@@ -11,6 +11,7 @@ Print "Building key data..."
 
 ' number of iterations per benchmark
 Const benchmarkIterations:Int = 100
+Global benchmarkSink:Long
 
 ' string keys
 Const maxSize:Int = 100000
@@ -54,6 +55,7 @@ For Local s:Int = 0 Until sizes.Length
 
 Next
 
+Print "Checksum: " + benchmarkSink
 
 Function BenchmarkMapOperations( name:String, map:TMap, seqKeysAsc:String[], seqKeysDesc:String[], randKeys:String[], size:Int )
 
@@ -131,6 +133,28 @@ Function BenchmarkMapOperations( name:String, map:TMap, seqKeysAsc:String[], seq
 		total :+ (endTime - startTime)
 	Next
 	Print "  Lookup Random: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
+
+	total = 0
+	For Local iter:Int = 0 Until benchmarkIterations
+		Local startTime:Int = MilliSecs()
+		For Local key:String = EachIn map.Keys()
+			benchmarkSink :+ key.Length
+		Next
+		Local endTime:Int = MilliSecs()
+		total :+ (endTime - startTime)
+	Next
+	Print "  Iterate Keys: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
+
+	total = 0
+	For Local iter:Int = 0 Until benchmarkIterations
+		Local startTime:Int = MilliSecs()
+		For Local value:Object = EachIn map.Values()
+			benchmarkSink :+ String(value).Length
+		Next
+		Local endTime:Int = MilliSecs()
+		total :+ (endTime - startTime)
+	Next
+	Print "  Iterate Values: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
 
 End Function
 
@@ -210,5 +234,27 @@ Function BenchmarkStringMapOperations( name:String, map:TStringMap, seqKeysAsc:S
 		total :+ (endTime - startTime)
 	Next
 	Print "  Lookup Random: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
+
+	total = 0
+	For Local iter:Int = 0 Until benchmarkIterations
+		Local startTime:Int = MilliSecs()
+		For Local key:String = EachIn map.Keys()
+			benchmarkSink :+ key.Length
+		Next
+		Local endTime:Int = MilliSecs()
+		total :+ (endTime - startTime)
+	Next
+	Print "  Iterate Keys: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
+
+	total = 0
+	For Local iter:Int = 0 Until benchmarkIterations
+		Local startTime:Int = MilliSecs()
+		For Local mapValue:Object = EachIn map.Values()
+			benchmarkSink :+ String(mapValue).Length
+		Next
+		Local endTime:Int = MilliSecs()
+		total :+ (endTime - startTime)
+	Next
+	Print "  Iterate Values: " + total + " ms" + " (avg " + (total / benchmarkIterations) + " ms)"
 
 End Function

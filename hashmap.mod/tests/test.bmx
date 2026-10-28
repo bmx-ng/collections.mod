@@ -194,6 +194,205 @@ Type THashMapTest Extends TTest
         AssertTrue(Not m.ContainsKey("a"), "No keys after Clear")
     End Method
 
+    Method TestClearRefillAndTrim() { test }
+        Local m:THashMap<Int,String> = New THashMap<Int,String>(256)
+        For Local i:Int = 0 Until 200
+            m[i] = "old" + i
+        Next
+
+        m.Clear()
+        AssertEquals(0, m.Count(), "Clear removes every entry")
+        For Local i:Int = 0 Until 200
+            AssertTrue(Not m.ContainsKey(i), "Cleared key is absent: " + i)
+        Next
+
+        For Local i:Int = 0 Until 200
+            m[i + 1000] = "new" + i
+        Next
+        AssertEquals(200, m.Count(), "Map can be refilled after Clear")
+        For Local i:Int = 0 Until 200
+            AssertEquals("new" + i, m[i + 1000], "Refilled value is correct: " + i)
+        Next
+
+        m.TrimExcess()
+        AssertEquals(200, m.Count(), "TrimExcess preserves count")
+        For Local i:Int = 0 Until 200
+            AssertEquals("new" + i, m[i + 1000], "TrimExcess preserves value: " + i)
+        Next
+
+        m.Clear()
+        m.TrimExcess()
+        m[7] = "seven"
+        AssertEquals("seven", m[7], "Map can be reused after empty TrimExcess")
+    End Method
+
+    Method TestNegativeInitialCapacityThrows() { test }
+        Local threw:Int
+        Try
+            Local m:THashMap<Int,Int> = New THashMap<Int,Int>(-1)
+        Catch e:TArgumentOutOfRangeException
+            threw = True
+        End Try
+        AssertTrue(threw, "Negative initial capacity throws TArgumentOutOfRangeException")
+    End Method
+
+    Method TestWrappedCollisionCluster() { test }
+        Local m:THashMap<Int,Int> = New THashMap<Int,Int>(New TWrappedHashComparator)
+        For Local i:Int = 0 Until 6
+            m[i] = i * 10
+        Next
+        AssertTrue(m.Remove(0), "Remove first key from wrapped cluster")
+        AssertTrue(m.Remove(3), "Remove middle key from wrapped cluster")
+        AssertTrue(m.Remove(5), "Remove last key from wrapped cluster")
+        AssertEquals(3, m.Count(), "Wrapped cluster count after removals")
+        AssertEquals(10, m[1], "Wrapped cluster retains key 1")
+        AssertEquals(20, m[2], "Wrapped cluster retains key 2")
+        AssertEquals(40, m[4], "Wrapped cluster retains key 4")
+    End Method
+
+    Method TestHighBitHashes() { test }
+        Local m:THashMap<Int,Int> = New THashMap<Int,Int>(New THighBitHashComparator)
+        For Local i:Int = 0 Until 1000
+            m[i] = i + 17
+        Next
+        For Local i:Int = 0 Until 1000
+            AssertEquals(i + 17, m[i], "High-bit hash lookup: " + i)
+        Next
+        For Local i:Int = 0 Until 1000 Step 3
+            AssertTrue(m.Remove(i), "High-bit hash removal: " + i)
+        Next
+        For Local i:Int = 0 Until 1000
+            If i Mod 3 = 0 Then
+                AssertTrue(Not m.ContainsKey(i), "Removed high-bit key is absent: " + i)
+            Else
+                AssertEquals(i + 17, m[i], "Retained high-bit value: " + i)
+            End If
+        Next
+    End Method
+
+    Method TestHashCalculatedOncePerOperation() { test }
+        Local comparator:TCountingHashComparator = New TCountingHashComparator
+        Local m:THashMap<Int,Int> = New THashMap<Int,Int>(comparator)
+
+        m[1] = 10
+        AssertEquals(1, comparator.calls, "Insert calculates the key hash once")
+
+        comparator.calls = 0
+        m[1] = 20
+        AssertEquals(1, comparator.calls, "Update calculates the key hash once")
+
+        comparator.calls = 0
+        m.Put(2, 30)
+        AssertEquals(1, comparator.calls, "Put calculates the key hash once")
+
+        comparator.calls = 0
+        Try
+            m.Add(2, 40)
+        Catch e:TArgumentException
+        End Try
+        AssertEquals(1, comparator.calls, "Duplicate Add calculates the key hash once")
+    End Method
+
+    Method TestClearAndTrimInvalidateIterators() { test }
+        Local m:THashMap<Int,Int> = New THashMap<Int,Int>(1000)
+        m[1] = 10
+        m[2] = 20
+        Local iterator:IIterator<IMapNode<Int,Int>> = m.GetIterator()
+        AssertTrue(iterator.MoveNext(), "Iterator starts before Clear")
+        m.Clear()
+        Local threw:Int
+        Try
+            iterator.MoveNext()
+        Catch e:TInvalidOperationException
+            threw = True
+        End Try
+        AssertTrue(threw, "Clear invalidates an existing iterator")
+
+        m[3] = 30
+        m[4] = 40
+        iterator = m.GetIterator()
+        AssertTrue(iterator.MoveNext(), "Iterator starts before TrimExcess")
+        m.TrimExcess()
+        threw = False
+        Try
+            iterator.MoveNext()
+        Catch e:TInvalidOperationException
+            threw = True
+        End Try
+        AssertTrue(threw, "A resizing TrimExcess invalidates an existing iterator")
+    End Method
+
+    Method TestRandomizedAgainstReference() { test }
+        Const KEY_COUNT:Int = 257
+        Local m:THashMap<Int,Int> = New THashMap<Int,Int>
+        Local present:Int[KEY_COUNT]
+        Local expected:Int[KEY_COUNT]
+        Local expectedCount:Int
+        Local seed:Int = 12345
+
+        For Local stepIndex:Int = 0 Until 20000
+            seed = (seed * 25173 + 13849) & $ffff
+            Local key:Int = seed Mod KEY_COUNT
+            Local operation:Int = (seed / 257) Mod 10
+
+            If operation < 4 Then
+                Local value:Int = seed + stepIndex
+                m[key] = value
+                If Not present[key] Then expectedCount :+ 1
+                present[key] = True
+                expected[key] = value
+            Else If operation < 6 Then
+                Local removed:Int = m.Remove(key)
+                AssertEquals(present[key], removed, "Remove agrees with reference model")
+                If present[key] Then expectedCount :- 1
+                present[key] = False
+            Else If operation < 9 Then
+                Local value:Int = -1
+                Local found:Int = m.TryGetValue(key, value)
+                AssertEquals(present[key], found, "TryGetValue agrees with reference model")
+                If found Then AssertEquals(expected[key], value, "TryGetValue returns reference value")
+            Else If (stepIndex Mod 97) = 0 Then
+                m.Clear()
+                present = New Int[KEY_COUNT]
+                expected = New Int[KEY_COUNT]
+                expectedCount = 0
+            Else If (stepIndex Mod 53) = 0 Then
+                m.TrimExcess()
+            Else
+                AssertEquals(present[key], m.ContainsKey(key), "ContainsKey agrees with reference model")
+            End If
+
+            If (stepIndex Mod 101) = 0 Then
+                AssertMapMatchesReference(m, present, expected, expectedCount)
+            End If
+        Next
+
+        AssertMapMatchesReference(m, present, expected, expectedCount)
+    End Method
+
+    Method AssertMapMatchesReference(m:THashMap<Int,Int>, present:Int[], expected:Int[], expectedCount:Int)
+        AssertEquals(expectedCount, m.Count(), "HashMap count agrees with reference model")
+        For Local key:Int = 0 Until present.Length
+            AssertEquals(present[key], m.ContainsKey(key), "Key presence agrees with reference: " + key)
+            If present[key] Then AssertEquals(expected[key], m[key], "Value agrees with reference: " + key)
+        Next
+
+        Local seen:Int[present.Length]
+        Local iterator:IIterator<IMapNode<Int,Int>> = m.GetIterator()
+        Local iterated:Int
+        While iterator.MoveNext()
+            Local node:IMapNode<Int,Int> = iterator.Current()
+            Local key:Int = node.GetKey()
+            AssertTrue(key >= 0 And key < present.Length, "Iterator key is in the reference range")
+            AssertTrue(present[key], "Iterator only returns present keys")
+            AssertTrue(Not seen[key], "Iterator returns each key once")
+            AssertEquals(expected[key], node.GetValue(), "Iterator value agrees with reference")
+            seen[key] = True
+            iterated :+ 1
+        Wend
+        AssertEquals(expectedCount, iterated, "Iterator count agrees with reference model")
+    End Method
+
     ' *** NEW: directly exercises Remove() on present and missing keys ***
     Method TestRemoveExistingAndMissing() { test }
         Local m:THashMap<String,String> = New THashMap<String,String>
@@ -426,5 +625,38 @@ Type TCollKeyClusteredComparator Implements IEqualityComparator<TCollKeyClustere
 
     Method HashCode:UInt(value:TCollKeyClustered)
         Return value.HashCode()
+    End Method
+End Type
+
+Type TWrappedHashComparator Implements IEqualityComparator<Int>
+    Method Equals:Int(a:Int, b:Int)
+        Return a = b
+    End Method
+
+    Method HashCode:UInt(value:Int)
+        Return $7ffffffe
+    End Method
+End Type
+
+Type THighBitHashComparator Implements IEqualityComparator<Int>
+    Method Equals:Int(a:Int, b:Int)
+        Return a = b
+    End Method
+
+    Method HashCode:UInt(value:Int)
+        Return UInt(value) | $80000000
+    End Method
+End Type
+
+Type TCountingHashComparator Implements IEqualityComparator<Int>
+    Field calls:Int
+
+    Method Equals:Int(a:Int, b:Int)
+        Return a = b
+    End Method
+
+    Method HashCode:UInt(value:Int)
+        calls :+ 1
+        Return UInt(value)
     End Method
 End Type
