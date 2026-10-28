@@ -1,5 +1,18 @@
 SuperStrict
 
+Rem
+bbdoc: Collections/IMap
+about: A map associates each distinct key with a single value. Each key may appear
+at most once within the map, while multiple keys may be associated with
+equal values.
+
+Maps provide efficient lookup, insertion and removal of values by key. As
+an #ICollection of #IMapNode entries, a map can also be iterated to access
+every key/value association.
+
+Unless an implementation documents otherwise, no particular iteration order
+should be assumed.
+End Rem
 Module Collections.IMap
 
 Import Collections.ICollection
